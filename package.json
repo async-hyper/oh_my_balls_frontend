@@ -1,0 +1,12 @@
+{
+  "name": "oh-my-balls-frontend",
+  "private": true,
+  "workspaces": [],
+  "scripts": {
+    "web": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:preview": "npm --prefix web run preview"
+  }
+}
+
+
