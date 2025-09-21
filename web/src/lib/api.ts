@@ -1,6 +1,6 @@
 import { LANES, MID_INDEX, clampIdx } from './game';
 
-const REMOTE_BASE = 'https://api-omb.antosha.app';
+const REMOTE_BASE = 'https://omb-api.antosha.app';
 const LOCAL_BASE = 'http://localhost:4000';
 
 export interface ParticipantSummary {
