@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, StatusResponse } from '../lib/api';
-import { classifyBall, formatCurrency, formatPercent, ordinal } from '../lib/game';
+import { classifyBall, formatCurrency, formatPercent, ordinal, placementForBallAtPrice } from '../lib/game';
 
 function getUUID(){
   const key = 'omb_user_uuid';
@@ -19,6 +19,7 @@ export default function UserResults(){
   const [results, setResults] = useState<Extract<StatusResponse,{status:2}>['results'] | null>(null);
   const [placement, setPlacement] = useState<number | null>(null);
   const [ball, setBall] = useState<string | null>(()=> typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null);
+  const [showCongrats, setShowCongrats] = useState(false);
 
   useEffect(()=>{
     let cancelled = false;
@@ -35,8 +36,22 @@ export default function UserResults(){
         setResults(res.results);
         const entry = res.results.standings.find(s=>s.uuid === uuid);
         if(entry){
+          const upperBall = entry.ball.toUpperCase();
           setPlacement(entry.position);
-          setBall(entry.ball);
+          setBall(upperBall);
+          if(typeof window !== 'undefined'){
+            window.localStorage.setItem('omb_user_ball', upperBall);
+          }
+          if(entry.position === 1) setShowCongrats(true);
+        }else{
+          const storedBall = typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null;
+          const currentBall = (storedBall ?? '').toUpperCase();
+          if(currentBall && res.results.p0 != null && res.results.p30 != null){
+            const placement = placementForBallAtPrice(currentBall, res.results.p0, res.results.p30);
+            setPlacement(placement);
+            if(currentBall) setBall(currentBall);
+            if(placement === 1) setShowCongrats(true);
+          }
         }
       }
       if(res.status === 1){
@@ -57,9 +72,19 @@ export default function UserResults(){
 
   const side = classifyBall(ball ?? '');
   const placeLabel = placement != null ? ordinal(placement) : '—';
+  const won = placement === 1;
 
   return (
     <div className="container" style={{maxWidth:720}}>
+      {won && showCongrats && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div className="card" style={{padding:32,textAlign:'center',maxWidth:360,boxShadow:'0 10px 40px rgba(0,0,0,0.45)'}}>
+            <div style={{fontSize:24,fontWeight:800,marginBottom:16}}>🎉 CONGRATS, YOU WIN!</div>
+            <img src="/cookie.png" alt="Congrats cookie" style={{width:180,height:180,objectFit:'contain',margin:'0 auto 20px'}} />
+            <button className="btn" style={{width:'100%',fontSize:18,padding:'14px 18px'}} onClick={()=>setShowCongrats(false)}>ACCEPT COOKIE</button>
+          </div>
+        </div>
+      )}
       <div className="header">
         <div className="brand">
           <span className="badge">Oh&nbsp;My&nbsp;Balls</span>

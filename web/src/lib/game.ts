@@ -32,6 +32,32 @@ export function classifyBall(ball?: string | null){
   return ball && ball.startsWith('B') ? 'long' : 'short';
 }
 
+export function priceToLane(p0: number, price: number){
+  const offsetPct = (price / p0) - 1;
+  return MID_INDEX - (offsetPct / LANE_PCT);
+}
+
+export function laneToPrice(p0: number, lane: number){
+  const offsetPct = (MID_INDEX - lane) * LANE_PCT;
+  return p0 * (1 + offsetPct);
+}
+
+export function computeStandingsFromPrice(p0: number, price: number){
+  const lane = priceToLane(p0, price);
+  return LANES.map((ball, idx)=>({
+    ball,
+    idx,
+    distance: Math.abs(lane - idx)
+  }))
+  .sort((a,b)=> a.distance - b.distance || a.idx - b.idx);
+}
+
+export function placementForBallAtPrice(ball: string, p0: number, price: number){
+  const standings = computeStandingsFromPrice(p0, price);
+  const position = standings.findIndex(entry => entry.ball === ball.toUpperCase());
+  return position >= 0 ? position + 1 : null;
+}
+
 export function formatCurrency(n: number | null | undefined){
   if(n == null || Number.isNaN(n)) return '—';
   return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -48,21 +74,4 @@ export function ordinal(n: number){
   const mod100 = v % 100;
   if(mod100 >= 11 && mod100 <= 13) return v + 'th';
   return v + (suffixes[v % 10] || 'th');
-}
-
-export function priceToLane(p0: number, price: number){
-  const offsetPct = (price / p0) - 1;
-  return MID_INDEX - (offsetPct / LANE_PCT);
-}
-
-export function laneToPrice(p0: number, lane: number){
-  const offsetPct = (MID_INDEX - lane) * LANE_PCT;
-  return p0 * (1 + offsetPct);
-}
-
-export function placementForBall(ball: string, p0: number, price: number){
-  const lane = priceToLane(p0, price);
-  const idx = indexForBall(ball);
-  if(idx == null) return null;
-  return Math.floor(Math.abs(lane - idx)) + 1;
 }

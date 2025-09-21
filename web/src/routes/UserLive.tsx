@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, StatusResponse } from '../lib/api';
-import { classifyBall, formatPercent } from '../lib/game';
+import { classifyBall, formatPercent, placementForBallAtPrice } from '../lib/game';
 import { useInterval } from '../lib/hooks';
 
 const TOTAL_DURATION = 30_000;
@@ -41,14 +41,8 @@ export default function UserLive(){
   }, 300);
 
   const handleStatus = (res: StatusResponse)=>{
-    if(res.status === 0){
-      navigate('/user/lobby');
-      return;
-    }
-    if(res.status === 2){
-      navigate('/user/results');
-      return;
-    }
+    if(res.status === 0){ navigate('/user/lobby'); return; }
+    if(res.status === 2){ navigate('/user/results'); return; }
     const { realtime_price } = res;
     const elapsedMs = realtime_price.elapsedMs;
     setCountdown(Math.max(0, Math.round((TOTAL_DURATION - elapsedMs)/1000)));
@@ -56,13 +50,23 @@ export default function UserLive(){
     setDeltaPct((realtime_price.price - realtime_price.p0) / realtime_price.p0);
 
     const participant = realtime_price.standings.find(s=>s.uuid === uuid);
+    const storedBall = typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null;
     if(participant){
+      const upperBall = participant.ball.toUpperCase();
       setPlacement(participant.position);
-      setBall(participant.ball);
+      setBall(upperBall);
       if(typeof window !== 'undefined'){
-        window.localStorage.setItem('omb_user_ball', participant.ball);
+        window.localStorage.setItem('omb_user_ball', upperBall);
       }
       updateHint(participant.position);
+      return;
+    }
+    const currentBall = (ball ?? storedBall ?? '').toUpperCase();
+    if(currentBall && realtime_price.p0){
+      const fallbackPlacement = placementForBallAtPrice(currentBall, realtime_price.p0, realtime_price.price);
+      setPlacement(fallbackPlacement);
+      if(!ball && currentBall) setBall(currentBall);
+      if(fallbackPlacement != null) updateHint(fallbackPlacement);
     }
   };
 

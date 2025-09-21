@@ -28,10 +28,11 @@ export default function UserLobby(){
       try{
         const res = await api.join();
         if(cancelled) return;
-        setBall(res.ball ?? null);
-        setName(res.name ?? null);
+        const normalized = res.ball?.toUpperCase?.() ?? null;
+        setBall(normalized);
+        setName(normalized);
         if(typeof window !== 'undefined'){
-          window.localStorage.setItem('omb_user_ball', res.ball);
+          window.localStorage.setItem('omb_user_ball', normalized ?? '');
         }
         setStatusLabel('Waiting for start…');
       }catch(err){
