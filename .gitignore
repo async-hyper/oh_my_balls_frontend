@@ -9,6 +9,7 @@ yarn-error.log*
 
 # node
 node_modules/
+local-api/state.json
 
 # vite/ts outputs
 web/dist/

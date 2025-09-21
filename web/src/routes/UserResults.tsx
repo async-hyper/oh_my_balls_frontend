@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, StatusResponse } from '../lib/api';
 import { classifyBall, formatCurrency, formatPercent, ordinal, placementForBallAtPrice } from '../lib/game';
@@ -20,6 +20,9 @@ export default function UserResults(){
   const [placement, setPlacement] = useState<number | null>(null);
   const [ball, setBall] = useState<string | null>(()=> typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null);
   const [showCongrats, setShowCongrats] = useState(false);
+  const closedCongratsRef = useRef(false);
+  const [activeRoundId, setActiveRoundId] = useState<number | null>(null);
+  const congratsKey = 'omb_congrats_hidden_round';
 
   useEffect(()=>{
     let cancelled = false;
@@ -33,6 +36,16 @@ export default function UserResults(){
 
     const handleStatus = (res: StatusResponse)=>{
       if(res.status === 2){
+        const hiddenRound = typeof window !== 'undefined' ? window.localStorage.getItem(congratsKey) : null;
+        if(hiddenRound && Number(hiddenRound) === res.roundId){
+          closedCongratsRef.current = true;
+        }
+        if(activeRoundId !== res.roundId){
+          setActiveRoundId(res.roundId);
+          if(!(hiddenRound && Number(hiddenRound) === res.roundId)){
+            closedCongratsRef.current = false;
+          }
+        }
         setResults(res.results);
         const entry = res.results.standings.find(s=>s.uuid === uuid);
         if(entry){
@@ -42,7 +55,7 @@ export default function UserResults(){
           if(typeof window !== 'undefined'){
             window.localStorage.setItem('omb_user_ball', upperBall);
           }
-          if(entry.position === 1) setShowCongrats(true);
+          if(entry.position === 1 && !closedCongratsRef.current) setShowCongrats(true);
         }else{
           const storedBall = typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null;
           const currentBall = (storedBall ?? '').toUpperCase();
@@ -50,14 +63,16 @@ export default function UserResults(){
             const placement = placementForBallAtPrice(currentBall, res.results.p0, res.results.p30);
             setPlacement(placement);
             if(currentBall) setBall(currentBall);
-            if(placement === 1) setShowCongrats(true);
+            if(placement === 1 && !closedCongratsRef.current) setShowCongrats(true);
           }
         }
       }
       if(res.status === 1){
+        if(typeof window !== 'undefined') window.localStorage.removeItem(congratsKey);
         navigate('/user/live');
       }
       if(res.status === 0){
+        if(typeof window !== 'undefined') window.localStorage.removeItem(congratsKey);
         navigate('/user/lobby');
       }
     };
@@ -81,7 +96,19 @@ export default function UserResults(){
           <div className="card" style={{padding:32,textAlign:'center',maxWidth:360,boxShadow:'0 10px 40px rgba(0,0,0,0.45)'}}>
             <div style={{fontSize:24,fontWeight:800,marginBottom:16}}>🎉 CONGRATS, YOU WIN!</div>
             <img src="/cookie.png" alt="Congrats cookie" style={{width:180,height:180,objectFit:'contain',margin:'0 auto 20px'}} />
-            <button className="btn" style={{width:'100%',fontSize:18,padding:'14px 18px'}} onClick={()=>setShowCongrats(false)}>ACCEPT COOKIE</button>
+            <button
+              className="btn"
+              style={{width:'100%',fontSize:18,padding:'14px 18px'}}
+              onClick={()=>{
+                closedCongratsRef.current = true;
+                if(typeof window !== 'undefined' && activeRoundId != null){
+                  window.localStorage.setItem(congratsKey, String(activeRoundId));
+                }
+                setShowCongrats(false);
+              }}
+            >
+              ACCEPT COOKIE
+            </button>
           </div>
         </div>
       )}
@@ -90,7 +117,6 @@ export default function UserResults(){
           <span className="badge">Oh&nbsp;My&nbsp;Balls</span>
           <div className="title">Results</div>
         </div>
-        <button className="btn" onClick={()=>navigate('/user/lobby')}>Play Again</button>
       </div>
 
       <div className="card" style={{textAlign:'center',padding:28}}>

@@ -30,9 +30,26 @@ export default function UserLive(){
 
   const updateHint = (placing: number | null)=>{
     if(placing == null){ setHint('Waiting for data…'); return; }
-    if(placing <= 5) setHint('Looking good 👀');
-    else if(placing <= 10) setHint('Neck and neck…');
-    else setHint('Needs a big move…');
+    const upbeat = [
+      'Looking good 👀',
+      'Hold the line, champ!',
+      'Green candles love you!',
+      'Cookie’s practically yours!'
+    ];
+    const neutral = [
+      'Neck and neck…',
+      'It’s anyone’s game!',
+      'Tiny moves decide this.',
+      'Stay sharp — micro gains matter.'
+    ];
+    const comeback = [
+      'Needs a big move…',
+      'Time for a heroic comeback!',
+      'Flip the script, you got this!',
+      'Launch mode: engage!'
+    ];
+    const bucket = placing <= 5 ? upbeat : placing <= 10 ? neutral : comeback;
+    setHint(bucket[Math.floor(Math.random()*bucket.length)]);
   };
 
   useInterval(async ()=>{

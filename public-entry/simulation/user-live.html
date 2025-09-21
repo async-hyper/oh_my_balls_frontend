@@ -157,8 +157,30 @@ function rand(a,b){return Math.random()*(b-a)+a}
 let pos=10;
 setInterval(()=>{
   pos = Math.max(0, Math.min(20, pos + rand(-1.2,1.2)));
+  const hintText = (()=>{
+    const upbeat = [
+      "Looking good 👀",
+      "Riding the green wave!",
+      "Hold the line, champ!",
+      "Cookie's almost yours!"
+    ];
+    const neutral = [
+      "Neck and neck…",
+      "It’s anyone’s game!",
+      "Just a hair away…",
+      "Stay sharp, tiny moves matter"
+    ];
+    const comeback = [
+      "Needs a big move…",
+      "Time for a heroic comeback!",
+      "Let's flip the script!",
+      "Swing for the fences!"
+    ];
+    const bucket = pos < 7 ? upbeat : pos > 14 ? comeback : neutral;
+    return bucket[Math.floor(Math.random()*bucket.length)];
+  })();
   document.getElementById('pos').textContent = Math.round(pos);
-  document.getElementById('hint').textContent = pos<7? "Looking good 👀" : pos>14? "Needs a big move…" : "Neck and neck…";
+  document.getElementById('hint').textContent = hintText;
 },350);
 </script>
 </body>
