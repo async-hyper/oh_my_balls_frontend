@@ -68,10 +68,21 @@ export default function PresenterLive(){
       if(!ctx) return;
 
       const dpr = resizeCanvasToDisplaySize(canvas);
-      drawGrid(ctx, canvas, dpr);
-      drawTrail(ctx, canvas, dpr, samples);
-      positionRightLanes(canvas, lanesWrap, lanesHeader, rightCard);
-      highlightLane(indicator, lanesWrap, samples);
+      const cssHeight = canvas.clientHeight;
+
+      const laneToCss = (lane:number)=>{
+        const centerY = cssHeight / 2;
+        const gridZoneHeight = cssHeight * 0.6;
+        const maxOffset = gridZoneHeight / 2;
+        const normalizedPos = (lane - mid) / (labels.length - 1) * verticalSpacingMultiplier;
+        return centerY + (normalizedPos * maxOffset);
+      };
+      const laneToCanvas = (lane:number)=> laneToCss(lane) * dpr;
+
+      drawGrid(ctx, canvas, laneToCanvas);
+      drawTrail(ctx, canvas, laneToCanvas, samples);
+      positionRightLanes(canvas, lanesWrap, lanesHeader, rightCard, laneToCss);
+      highlightLane(canvas, indicator, lanesWrap, samples, laneToCss);
     };
 
     const resizeCanvasToDisplaySize = (canvas: HTMLCanvasElement)=>{
@@ -95,33 +106,29 @@ export default function PresenterLive(){
       return Math.max(0, Math.min(cssH, y));
     };
 
-    const drawGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dpr: number)=>{
+    const drawGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, laneToCanvas:(lane:number)=>number)=>{
       ctx.save();
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle = 'rgba(255,255,255,0.02)';
       ctx.fillRect(0,0,canvas.width,canvas.height);
 
+      const dpr = window.devicePixelRatio || 1;
       ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.setLineDash([4*dpr,4*dpr]);
       ctx.lineWidth = 1*dpr;
-      const yTop = yScale(canvas, mid - clampLanes);
-      const yBot = yScale(canvas, mid + clampLanes);
+      const yTop = laneToCanvas(mid - clampLanes);
+      const yBot = laneToCanvas(mid + clampLanes);
       ctx.beginPath(); ctx.moveTo(0,yTop); ctx.lineTo(canvas.width,yTop); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0,yBot); ctx.lineTo(canvas.width,yBot); ctx.stroke();
       ctx.setLineDash([]);
 
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      const centerY = canvas.height/2;
+      const centerY = laneToCanvas(mid);
       ctx.beginPath(); ctx.moveTo(0,centerY); ctx.lineTo(canvas.width,centerY); ctx.stroke();
 
       ctx.strokeStyle = 'rgba(255,255,255,0.09)';
       for(let i=0;i<labels.length;i++){
-        const cssH = canvas.height;
-        const center = cssH / 2;
-        const gridZoneHeight = cssH * 0.6;
-        const maxOffset = gridZoneHeight / 2;
-        const normalizedPos = (i - mid) / (labels.length - 1) * verticalSpacingMultiplier;
-        const y = center + (normalizedPos * maxOffset);
+        const y = laneToCanvas(i);
         if(y>=0 && y<=canvas.height){
           ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
         }
@@ -129,8 +136,9 @@ export default function PresenterLive(){
       ctx.restore();
     };
 
-    const drawTrail = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dpr: number, samples: { tMs:number; price:number; lane:number }[])=>{
+    const drawTrail = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, laneToCanvas:(lane:number)=>number, samples: { tMs:number; price:number; lane:number }[])=>{
       ctx.save();
+      const dpr = window.devicePixelRatio || 1;
       ctx.lineWidth = 2*dpr;
       ctx.strokeStyle = '#34d399';
       ctx.beginPath();
@@ -139,21 +147,14 @@ export default function PresenterLive(){
         const padL = 24*dpr, padR = 24*dpr;
         const w = canvas.width - padL - padR;
         const x = padL + (sample.tMs / (durSec*1000)) * w;
-        const y = yScaleDOM(canvas, sample.lane);
+        const y = laneToCanvas(sample.lane);
         if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
       }
       ctx.stroke();
       ctx.restore();
     };
 
-    const yScale = (canvas: HTMLCanvasElement, idxLike:number)=>{
-      const lo = mid - clampLanes;
-      const hi = mid + clampLanes;
-      const t = (idxLike - lo) / (hi - lo);
-      return canvas.height * t;
-    };
-
-    const positionRightLanes = (canvas: HTMLCanvasElement, lanesWrap: HTMLDivElement, lanesHeader: HTMLDivElement, rightCard: HTMLDivElement)=>{
+    const positionRightLanes = (canvas: HTMLCanvasElement, lanesWrap: HTMLDivElement, lanesHeader: HTMLDivElement, rightCard: HTMLDivElement, laneToCss:(lane:number)=>number)=>{
       const canvasRect = canvas.getBoundingClientRect();
       const cardRect = rightCard.getBoundingClientRect();
       const headerHeight = lanesHeader.offsetHeight + 8;
@@ -162,14 +163,14 @@ export default function PresenterLive(){
       lanesWrap.style.height = canvas.clientHeight + 'px';
       for(let i=0;i<lanesWrap.children.length;i++){
         const child = lanesWrap.children[i] as HTMLDivElement;
-        child.style.top = yScaleDOM(canvas, i) + 'px';
+        child.style.top = laneToCss(i) + 'px';
       }
     };
 
-    const highlightLane = (indicator: HTMLDivElement, lanesWrap: HTMLDivElement, samples: { tMs:number; price:number; lane:number }[])=>{
+    const highlightLane = (canvas: HTMLCanvasElement, indicator: HTMLDivElement, lanesWrap: HTMLDivElement, samples: { tMs:number; price:number; lane:number }[], laneToCss:(lane:number)=>number)=>{
       const latest = samples[samples.length - 1];
       const idxRounded = Math.max(0, Math.min(labels.length-1, Math.round(latest.lane)));
-      indicator.style.top = yScaleDOM(canvasRef.current!, latest.lane) + 'px';
+      indicator.style.top = laneToCss(latest.lane) + 'px';
       for(let i=0;i<lanesWrap.children.length;i++){
         lanesWrap.children[i].classList.remove('win');
       }
