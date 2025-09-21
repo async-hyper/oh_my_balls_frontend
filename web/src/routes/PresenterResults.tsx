@@ -46,6 +46,9 @@ export default function PresenterResults(){
 
   const handleNewRound = async ()=>{
     resetRound();
+    if(typeof window !== 'undefined'){
+      window.localStorage.removeItem('omb_user_ball');
+    }
     navigate('/presenter/lobby');
   };
 

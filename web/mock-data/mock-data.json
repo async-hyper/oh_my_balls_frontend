@@ -13,6 +13,7 @@
   "results": {
     "winnerBall": null,
     "winnerName": null,
+    "p0": null,
     "p30": null,
     "chgPct": null,
     "resolvedAt": null,

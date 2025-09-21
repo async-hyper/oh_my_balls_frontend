@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mockLiveStatus } from '../lib/mockServer';
-import { LANES, MID_INDEX, priceToLane, classifyBall, formatCurrency, formatPercent } from '../lib/game';
+import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '../lib/game';
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;

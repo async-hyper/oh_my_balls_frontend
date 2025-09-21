@@ -1,4 +1,4 @@
-import rawDefault from '../mock-data/mock-data.json?raw';
+import rawDefault from '../../mock-data/mock-data.json?raw';
 
 export type Phase = 0 | 1 | 2;
 
@@ -37,6 +37,7 @@ export interface StandingEntry {
 export interface ResultsState {
   winnerBall: string | null;
   winnerName: string | null;
+  p0: number | null;
   p30: number | null;
   chgPct: number | null;
   resolvedAt: number | null;
@@ -111,4 +112,3 @@ export function resetState(): void {
   initial.roundId = Date.now();
   saveState(initial);
 }
-

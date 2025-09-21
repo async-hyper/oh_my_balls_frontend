@@ -30,6 +30,9 @@ export default function UserLobby(){
         if(cancelled) return;
         setBall(res.ball);
         setName(res.name);
+        if(typeof window !== 'undefined'){
+          window.localStorage.setItem('omb_user_ball', res.ball);
+        }
         setStatusLabel('Waiting for start…');
       }catch(err){
         if(!cancelled){

@@ -1,5 +1,5 @@
-import { getState, resetState, updateState, Participant, MockState, StandingEntry, PriceSample } from './mockStore';
-import { LANES, indexForBall, LANE_PCT, MID_INDEX, priceToLane } from './game';
+import { resetState, updateState, Participant, MockState, StandingEntry, PriceSample } from './mockStore';
+import { LANES, indexForBall, MID_INDEX, priceToLane } from './game';
 
 const TOTAL_BALLS = LANES.length;
 const LOBBY_PHASE: 0 = 0;
@@ -9,7 +9,7 @@ const RESULTS_PHASE: 2 = 2;
 const TICK_MS = 100;
 const DURATION_MS = 30_000;
 const CLAMP_PCT = 0.07; // ±7%
-const BOT_NAME_SEQUENCE = [
+const BOT_FILL_ORDER = [
   'S9','S8','S7','S6','S5','S4','S3','S2','S1','S0',
   'B0','B1','B2','B3','B4','B5','B6','B7','B8','B9'
 ];
@@ -49,19 +49,20 @@ export interface ResultsStatus {
 
 export type StatusResponse = LobbyStatus | LiveStatus | ResultsStatus;
 
-function availableBalls(state: MockState): string[] {
+function availableBalls(state: MockState, order: readonly string[] = LANES): string[] {
   const taken = new Set(state.participants.map(p=>p.ball));
-  return LANES.filter(ball => !taken.has(ball));
+  return order.filter(ball => !taken.has(ball));
 }
 
 function playerDisplayName(uuid: string): string {
   return `Player ${uuid.slice(0, 4).toUpperCase()}`;
 }
 
-function nextBotName(state: MockState): string {
+function nextBotName(state: MockState, fallback: string): string {
   const used = new Set(state.participants.filter(p=>p.isBot).map(p=>p.name));
-  const available = BOT_NAME_SEQUENCE.find(name => !used.has(name));
-  return available ?? `Bot-${state.participants.length + 1}`;
+  if(!used.has(fallback)) return fallback;
+  const alt = BOT_FILL_ORDER.find(name => !used.has(name));
+  return alt ?? `Bot-${state.participants.length + 1}`;
 }
 
 function computeStandings(state: MockState, lanePosition: number): StandingEntry[] {
@@ -215,7 +216,7 @@ export async function mockJoin(uuid: string): Promise<{ ball: string; name: stri
 export async function forceStart(): Promise<void> {
   updateState(state => {
     if(state.phase !== LOBBY_PHASE) return;
-    const available = availableBalls(state);
+    const available = availableBalls(state, BOT_FILL_ORDER);
     available.forEach((ball, idx)=>{
       const botUuid = `bot-${ball.toLowerCase()}`;
       const existing = state.participants.find(p=>p.uuid === botUuid);
@@ -223,7 +224,7 @@ export async function forceStart(): Promise<void> {
       state.participants.push({
         uuid: botUuid,
         ball,
-        name: nextBotName(state),
+        name: nextBotName(state, ball),
         isBot: true,
         joinedAt: Date.now() + idx
       });
@@ -308,4 +309,4 @@ export function totalBalls(): number {
   return TOTAL_BALLS;
 }
 
-export const BOT_NAMES = BOT_NAME_SEQUENCE.map(name => `Bot ${name}`);
+export const BOT_NAMES = [...BOT_FILL_ORDER];
