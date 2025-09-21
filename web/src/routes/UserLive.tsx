@@ -105,8 +105,34 @@ export default function UserLive(){
 
       <div className="card" style={{textAlign:'center',padding:28}}>
         <div className="meta">Your Ball</div>
-        <div className={`pill ${side}`} style={{display:'inline-block',margin:'8px 0',fontSize:24,padding:'8px 14px'}}>{displayBall}</div>
-        <div className="meta">Placement</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',margin:'12px 0 18px'}}>
+          <div
+            style={{
+              width:96,
+              height:96,
+              borderRadius:'50%',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              fontSize:32,
+              fontWeight:900,
+              letterSpacing:'0.04em',
+              textTransform:'uppercase',
+              boxShadow:'0 0 24px rgba(0,0,0,0.25)',
+              border:`4px solid ${side==='long' ? '#10b981' : '#f97316'}`,
+              background: side==='long'
+                ? 'radial-gradient(circle at 30% 30%, rgba(110,231,183,0.85), rgba(5,150,105,0.6))'
+                : 'radial-gradient(circle at 30% 30%, rgba(252,165,165,0.85), rgba(220,38,38,0.6))',
+              color: side==='long' ? '#022c22' : '#7f1d1d',
+              textShadow: side==='long'
+                ? '0 1px 2px rgba(255,255,255,0.55)'
+                : '0 1px 2px rgba(255,255,255,0.45)'
+            }}
+          >
+            {displayBall}
+          </div>
+        </div>
+        <div className="meta">Current Place</div>
         <div className="placing">{placement ?? '—'}</div>
         <hr/>
         <div className="meta">{hint}</div>

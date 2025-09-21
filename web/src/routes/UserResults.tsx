@@ -119,10 +119,37 @@ export default function UserResults(){
         </div>
       </div>
 
-      <div className="card" style={{textAlign:'center',padding:28}}>
+      <div className="card" style={{textAlign:'center',padding:32}}>
         <div className="meta">Final Place</div>
-        <div className="place">{placeLabel}</div>
-        <div className="meta">Your Ball <span className={`pill ${side}`}>{ball ?? '—'}</span></div>
+        <div className="place" style={{marginBottom:16}}>{placeLabel}</div>
+        <div className="meta" style={{marginBottom:8}}>Your Ball</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
+          <div
+            style={{
+              width:108,
+              height:108,
+              borderRadius:'50%',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              fontSize:36,
+              fontWeight:900,
+              letterSpacing:'0.04em',
+              textTransform:'uppercase',
+              boxShadow:'0 0 28px rgba(0,0,0,0.28)',
+              border:`4px solid ${side==='long' ? '#10b981' : '#f97316'}`,
+              background: side==='long'
+                ? 'radial-gradient(circle at 30% 30%, rgba(110,231,183,0.85), rgba(5,150,105,0.6))'
+                : 'radial-gradient(circle at 30% 30%, rgba(252,165,165,0.85), rgba(220,38,38,0.6))',
+              color: side==='long' ? '#022c22' : '#7f1d1d',
+              textShadow: side==='long'
+                ? '0 1px 2px rgba(255,255,255,0.55)'
+                : '0 1px 2px rgba(255,255,255,0.45)'
+            }}
+          >
+            {ball ?? '—'}
+          </div>
+        </div>
         <hr/>
         <div className="meta">Winner: {results?.winnerName ?? '—'} ({results?.winnerBall ?? '—'})</div>
         <div className="meta" style={{marginTop:8}}>p0 {formatCurrency(results?.p0)}</div>
