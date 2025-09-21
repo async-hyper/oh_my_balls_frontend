@@ -1,56 +1,78 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockStatus, resetMockLobby, totalBalls } from '../lib/mockServer';
+import { forceStart, mockStatus, totalBalls, StatusResponse } from '../lib/mockServer';
+import { classifyBall } from '../lib/game';
+
+interface LobbyRow {
+  uuid: string;
+  ball: string;
+  name: string;
+  isBot: boolean;
+}
 
 export default function PresenterLobby(){
   const navigate = useNavigate();
-  const [balls, setBalls] = useState<string[]>([]);
+  const [participants, setParticipants] = useState<LobbyRow[]>([]);
+  const [polling, setPolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(()=>{
-    resetMockLobby();
-    setBalls([]);
     let cancelled = false;
-    let intervalId: number | null = null;
-    const fetchStatus = async ()=>{
-      const res = await mockStatus();
-      if(cancelled) return;
-      setBalls(res.balls);
-      if(res.balls.length >= totalBalls() && intervalId !== null){
-        window.clearInterval(intervalId);
-        intervalId = null;
+    let timer: number | null = null;
+
+    const poll = async ()=>{
+      try{
+        setPolling(true);
+        const res = await mockStatus();
+        if(cancelled) return;
+        handleStatus(res);
+      }catch(err){
+        if(!cancelled){
+          setError((err as Error).message);
+        }
+      }finally{
+        if(!cancelled) setPolling(false);
       }
     };
-    fetchStatus();
-    intervalId = window.setInterval(fetchStatus, 1000) as unknown as number;
+
+    const handleStatus = (res: StatusResponse)=>{
+      if(res.status === 0){
+        setParticipants(res.participants);
+      }
+      if(res.status === 1){
+        navigate('/presenter/live');
+      }
+      if(res.status === 2){
+        navigate('/presenter/results');
+      }
+    };
+
+    poll();
+    timer = window.setInterval(poll, 1000) as unknown as number;
     return ()=>{
       cancelled = true;
-      if(intervalId !== null) window.clearInterval(intervalId);
+      if(timer !== null) window.clearInterval(timer);
     };
-  }, []);
-
-  useEffect(()=>{
-    if(balls.length >= totalBalls()){
-      const timer = window.setTimeout(()=>navigate('/presenter/live'), 400);
-      return ()=> window.clearTimeout(timer);
-    }
-    return undefined;
-  }, [balls.length, navigate]);
+  }, [navigate]);
 
   const rows = useMemo(()=>{
-    if(balls.length === 0) return null;
-    return balls.map((ball, idx)=>{
-      const side = ball.startsWith('B') ? 'long' : 'short';
+    if(participants.length === 0) return null;
+    return participants.map((p, idx)=>{
+      const side = classifyBall(p.ball);
       return (
-        <tr key={ball+idx}>
+        <tr key={p.uuid}>
           <td className="meta">{idx+1}</td>
-          <td><span className={`pill ${side}`}>{ball}</span></td>
-          <td><span className="meta">Ready</span></td>
+          <td><span className={`pill ${side}`}>{p.ball}</span></td>
+          <td>{p.name}</td>
+          <td className="meta">Ready</td>
         </tr>
       );
     });
-  }, [balls]);
+  }, [participants]);
 
-  const participantCount = balls.length;
+  const participantCount = participants.length;
+  const capacity = totalBalls();
+
   return (
     <div className="container">
       <div className="header">
@@ -58,7 +80,7 @@ export default function PresenterLobby(){
           <span className="badge">Oh&nbsp;My&nbsp;Balls</span>
           <div className="title">Presenter — Lobby</div>
         </div>
-        <div className="meta">Max players <b>20</b> · Session length <b>30s</b></div>
+        <div className="meta">Max players <b>{capacity}</b> · Session length <b>30s</b></div>
       </div>
 
       <div className="grid" style={{gridTemplateColumns:'360px 1fr'}}>
@@ -75,27 +97,31 @@ export default function PresenterLobby(){
             />
           </div>
           <hr/>
-          <div className="meta">Tip: map this to <span className="kbd">/user-lobby.html</span> (no wallet required)</div>
+          <div className="meta">Tip: map this to <span className="kbd">#/user/lobby</span> (no wallet required)</div>
         </div>
 
         <div className="card">
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <div style={{fontWeight:800}}>Participants</div>
-              <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/{totalBalls()}</span>
+              <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/{capacity}</span>
             </div>
-            <div className="meta">Polling mock status every 1s…</div>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+              <button className="btn" onClick={()=>forceStart()}>Force Start</button>
+            </div>
           </div>
           <table className="table" id="ptable">
             <thead>
-              <tr><th style={{width:44}}>#</th><th>Ball</th><th>Status</th></tr>
+              <tr><th style={{width:44}}>#</th><th>Ball</th><th>Name</th><th>Status</th></tr>
             </thead>
             <tbody>
               {rows || (
-                <tr><td colSpan={3} className="meta" style={{textAlign:'center',padding:'18px 10px'}}>Waiting for players…</td></tr>
+                <tr><td colSpan={4} className="meta" style={{textAlign:'center',padding:'18px 10px'}}>Waiting for players…</td></tr>
               )}
             </tbody>
           </table>
+          {error && <div className="notice" style={{marginTop:12}}>Error: {error}</div>}
+          {polling && <div className="meta" style={{marginTop:8}}>Polling…</div>}
         </div>
       </div>
 

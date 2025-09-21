@@ -28,6 +28,23 @@ export function priceSnapshot(p0: number | null | undefined, idx: number) {
   return { pc: p0 * (1 + offsetPct), chgPct: offsetPct, offsetPct };
 }
 
+export function priceToLane(p0: number, price: number){
+  const offsetPct = (price / p0) - 1;
+  return MID_INDEX - (offsetPct / LANE_PCT);
+}
+
+export function laneToPrice(p0: number, lane: number){
+  const offsetPct = (MID_INDEX - lane) * LANE_PCT;
+  return p0 * (1 + offsetPct);
+}
+
+export function placementForBall(ball: string, p0: number, price: number){
+  const lane = priceToLane(p0, price);
+  const idx = indexForBall(ball);
+  if(idx == null) return null;
+  return Math.floor(Math.abs(lane - idx)) + 1;
+}
+
 export function classifyBall(ball?: string | null){
   return ball && ball.startsWith('B') ? 'long' : 'short';
 }
