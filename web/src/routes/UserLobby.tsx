@@ -84,10 +84,9 @@ export default function UserLobby(){
         {name && <div className="meta" style={{marginBottom:12}}>Codename: {name}</div>}
         <div className="meta">Keep this page open. The game will start automatically.</div>
         <hr/>
-        <div className="notice">Mock screen — ball comes from the /join mock endpoint.</div>
-        <div style={{marginTop:12}}>
+        {/*<div style={{marginTop:12}}>
           <button className="btn" onClick={()=>{ window.location.hash = '#/user/live'; }}>Preview Live Screen →</button>
-        </div>
+        </div>*/}
         {error && <div className="notice" style={{marginTop:12}}>Error: {error}</div>}
       </div>
 
