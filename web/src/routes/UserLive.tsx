@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockLiveStatus } from '../lib/mockServer';
+import { api, StatusResponse } from '../lib/api';
 import { classifyBall, formatPercent } from '../lib/game';
 import { useInterval } from '../lib/hooks';
 
@@ -36,7 +36,15 @@ export default function UserLive(){
   };
 
   useInterval(async ()=>{
-    const res = await mockLiveStatus();
+    const res = await api.status();
+    handleStatus(res);
+  }, 300);
+
+  const handleStatus = (res: StatusResponse)=>{
+    if(res.status === 0){
+      navigate('/user/lobby');
+      return;
+    }
     if(res.status === 2){
       navigate('/user/results');
       return;
@@ -56,7 +64,7 @@ export default function UserLive(){
       }
       updateHint(participant.position);
     }
-  }, 300);
+  };
 
   useEffect(()=>{
     updateHint(placement);

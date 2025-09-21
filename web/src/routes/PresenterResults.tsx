@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockStatus, resetRound, ResultsStatus, StatusResponse } from '../lib/mockServer';
+import { api, StatusResponse } from '../lib/api';
 import { classifyBall, formatCurrency, formatPercent } from '../lib/game';
+
+type ResultsPayload = Extract<StatusResponse, { status: 2 }>['results'];
 
 export default function PresenterResults(){
   const navigate = useNavigate();
-  const [results, setResults] = useState<ResultsStatus['results'] | null>(null);
+  const [results, setResults] = useState<ResultsPayload | null>(null);
 
   useEffect(()=>{
     let cancelled = false;
     let timer: number | null = null;
 
     const poll = async ()=>{
-      const res = await mockStatus();
+      const res = await api.status();
       if(cancelled) return;
       handleStatus(res);
     };
@@ -45,7 +47,7 @@ export default function PresenterResults(){
   const chgPct = results?.chgPct ?? null;
 
   const handleNewRound = async ()=>{
-    resetRound();
+    await api.reset();
     if(typeof window !== 'undefined'){
       window.localStorage.removeItem('omb_user_ball');
     }

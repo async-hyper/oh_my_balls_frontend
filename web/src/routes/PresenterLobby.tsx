@@ -1,18 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { forceStart, mockStatus, totalBalls, StatusResponse } from '../lib/mockServer';
-import { classifyBall } from '../lib/game';
-
-interface LobbyRow {
-  uuid: string;
-  ball: string;
-  name: string;
-  isBot: boolean;
-}
+import { api, ParticipantSummary, StatusResponse } from '../lib/api';
+import { classifyBall, LANES } from '../lib/game';
 
 export default function PresenterLobby(){
   const navigate = useNavigate();
-  const [participants, setParticipants] = useState<LobbyRow[]>([]);
+  const [participants, setParticipants] = useState<ParticipantSummary[]>([]);
   const [polling, setPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +16,7 @@ export default function PresenterLobby(){
     const poll = async ()=>{
       try{
         setPolling(true);
-        const res = await mockStatus();
+        const res = await api.status();
         if(cancelled) return;
         handleStatus(res);
       }catch(err){
@@ -71,7 +64,7 @@ export default function PresenterLobby(){
   }, [participants]);
 
   const participantCount = participants.length;
-  const capacity = totalBalls();
+  const capacity = LANES.length;
 
   return (
     <div className="container">
@@ -109,7 +102,7 @@ export default function PresenterLobby(){
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
               <button className="btn" onClick={async ()=>{
                 try{
-                  await forceStart();
+                  await api.start();
                 }catch(err){
                   setError((err as Error).message);
                 }

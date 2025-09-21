@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockLiveStatus } from '../lib/mockServer';
+import { api, StatusResponse } from '../lib/api';
 import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '../lib/game';
 
 const verticalSpacingMultiplier = 2.3;
@@ -34,8 +34,16 @@ export default function PresenterLive(){
     let timer: number | null = null;
 
     const poll = async ()=>{
-      const res = await mockLiveStatus();
+      const res = await api.status();
       if(cancelled) return;
+      handleStatus(res);
+    };
+
+    const handleStatus = (res: StatusResponse)=>{
+      if(res.status === 0){
+        navigate('/presenter/lobby');
+        return;
+      }
       if(res.status === 2){
         navigate('/presenter/results');
         return;
@@ -44,7 +52,7 @@ export default function PresenterLive(){
       renderScene();
     };
 
-    const updateFromResponse = (res: any)=>{
+    const updateFromResponse = (res: Extract<StatusResponse,{status:1}>)=>{
       const { realtime_price } = res;
       if(!realtime_price) return;
       setP0(realtime_price.p0);

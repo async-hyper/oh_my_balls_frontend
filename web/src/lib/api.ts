@@ -1,19 +1,44 @@
 import { LANES, MID_INDEX, clampIdx } from './game';
 
 const REMOTE_BASE = 'https://api-omb.antosha.app';
+const LOCAL_BASE = 'http://localhost:4000';
 
-export type Phase = 'lobby' | 'live' | 'results';
-export interface Status {
-  phase: Phase;
-  p0: number | null;
-  p30: number | null;
-  chgPct: number;
-  nowIdx: number;
-  participants: Record<string, { ball: string, name?: string }>;
-  winner: { ball: string } | null;
-  startedAt?: number | null;
+export interface ParticipantSummary {
+  uuid: string;
+  ball: string;
+  name: string;
+  isBot: boolean;
 }
 
+export interface PriceSample {
+  tMs: number;
+  price: number;
+  lane: number;
+}
+
+export interface StandingEntry {
+  uuid: string;
+  ball: string;
+  name: string;
+  isBot: boolean;
+  position: number;
+  distance: number;
+}
+
+export type StatusResponse =
+  | { status: 0; roundId: number; capacity: number; participants: ParticipantSummary[] }
+  | { status: 1; roundId: number; realtime_price: { price: number; p0: number; startedAt: number; elapsedMs: number; samples: PriceSample[]; standings: StandingEntry[] } }
+  | { status: 2; roundId: number; results: { winnerBall: string | null; winnerName: string | null; p0: number | null; p30: number | null; chgPct: number | null; standings: StandingEntry[] } };
+
+const params = new URLSearchParams(location.search);
+const apiMode = params.get('api') ?? 'local';
+const apiBase = apiMode === 'remote'
+  ? REMOTE_BASE
+  : apiMode === 'local'
+    ? LOCAL_BASE
+    : null;
+
+type Phase = 'lobby' | 'live' | 'results';
 type Participant = { ball: string, name?: string };
 interface MockState {
   phase: Phase;
@@ -22,11 +47,9 @@ interface MockState {
   chgPct: number;
   nowIdx: number;
   participants: Record<string, Participant>;
-  winner: { ball: string } | null;
+  winner: { ball: string, name?: string } | null;
   startedAt: number | null;
 }
-
-const useRemote = new URLSearchParams(location.search).get('api') === 'remote';
 
 function getOrCreateUUID(): string {
   const k = 'omb_uuid';
@@ -41,21 +64,42 @@ function getOrCreateUUID(): string {
 
 async function join(name?:string): Promise<{ball:string, name?:string}> {
   const uuid = getOrCreateUUID();
-  if(useRemote){
-    const res = await fetch(REMOTE_BASE+'/join', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uuid }) });
+  if(apiBase){
+    const res = await fetch(apiBase+'/join', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ uuid, name })
+    });
     if(!res.ok) throw new Error('HTTP '+res.status);
     return res.json();
   }
   return mockJoin(uuid, name);
 }
 
-async function status(): Promise<Status> {
-  if(useRemote){
-    const res = await fetch(REMOTE_BASE+'/status');
+async function status(): Promise<StatusResponse> {
+  if(apiBase){
+    const res = await fetch(apiBase+'/status');
     if(!res.ok) throw new Error('HTTP '+res.status);
     return res.json();
   }
   return mockStatus();
+}
+
+async function start(): Promise<void> {
+  if(apiBase){
+    const res = await fetch(apiBase+'/start', { method:'POST' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return;
+  }
+  mock.start();
+}
+
+async function reset(): Promise<void> {
+  if(apiBase){
+    await fetch(apiBase+'/reset', { method:'POST' });
+    return;
+  }
+  mock.reset();
 }
 
 // Mock layer
@@ -101,8 +145,44 @@ async function mockJoin(uuid:string, name?:string){
   return { ball: s.participants[uuid].ball, name: s.participants[uuid].name };
 }
 
-async function mockStatus(): Promise<Status>{
-  return read();
+async function mockStatus(): Promise<StatusResponse>{
+  const state = read();
+  if(state.phase === 'lobby'){
+    return {
+      status: 0,
+      roundId: 1,
+      capacity: LANES.length,
+      participants: Object.entries(state.participants).map(([uuid, value])=>({ uuid, ball: value.ball, name: value.name || '', isBot: false }))
+    };
+  }
+  if(state.phase === 'live' && state.p0 && state.startedAt){
+    const elapsed = Date.now() - state.startedAt;
+    const lane = priceToLane(state.p0, state.p0 * (1 + state.chgPct));
+    return {
+      status: 1,
+      roundId: 1,
+      realtime_price: {
+        price: state.p0 * (1 + state.chgPct),
+        p0: state.p0,
+        startedAt: state.startedAt,
+        elapsedMs: elapsed,
+        samples: [],
+        standings: []
+      }
+    };
+  }
+  return {
+    status: 2,
+    roundId: 1,
+    results: {
+      winnerBall: state.winner?.ball ?? null,
+      winnerName: state.winner?.name ?? null,
+      p0: state.p0,
+      p30: state.p30,
+      chgPct: state.chgPct,
+      standings: []
+    }
+  };
 }
 
 // mock controls for local testing
@@ -114,7 +194,4 @@ export const mock = {
   seed(n:number){ for(let i=0;i<n;i++) this.addRandom(); }
 };
 
-// small ticker to move index during live
-setInterval(()=>{ const s=read(); if(s.phase==='live'){ const dir=Math.random()>0.5?1:-1; let step=Math.random()*1.8*dir; s.nowIdx=clampIdx(s.nowIdx + step); write(s);} }, 100);
-
-export const api = { join, status, getOrCreateUUID };
+export const api = { join, status, start, reset, getOrCreateUUID, mode: apiMode };

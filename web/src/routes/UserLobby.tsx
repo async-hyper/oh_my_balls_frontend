@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockJoin, mockStatus, StatusResponse } from '../lib/mockServer';
+import { api, StatusResponse } from '../lib/api';
 import { classifyBall } from '../lib/game';
 import { useInterval } from '../lib/hooks';
 
@@ -26,7 +26,7 @@ export default function UserLobby(){
     let cancelled = false;
     (async()=>{
       try{
-        const res = await mockJoin(uuid);
+        const res = await api.join();
         if(cancelled) return;
         setBall(res.ball);
         setName(res.name);
@@ -57,7 +57,7 @@ export default function UserLobby(){
 
   useInterval(async ()=>{
     try{
-      const res = await mockStatus();
+      const res = await api.status();
       handlePhase(res);
     }catch(err){
       setError((err as Error).message);

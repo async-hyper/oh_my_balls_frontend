@@ -1,0 +1,22 @@
+{
+  "phase": 0,
+  "roundId": 1,
+  "participants": [],
+  "live": {
+    "startedAt": null,
+    "p0": null,
+    "samples": [],
+    "velocity": 0,
+    "lastTickAt": null,
+    "finalPrice": null
+  },
+  "results": {
+    "winnerBall": null,
+    "winnerName": null,
+    "p0": null,
+    "p30": null,
+    "chgPct": null,
+    "resolvedAt": null,
+    "standings": []
+  }
+}

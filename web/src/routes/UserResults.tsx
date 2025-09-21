@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockStatus, ResultsStatus, StatusResponse } from '../lib/mockServer';
+import { api, StatusResponse } from '../lib/api';
 import { classifyBall, formatCurrency, formatPercent, ordinal } from '../lib/game';
 
 function getUUID(){
@@ -16,7 +16,7 @@ function getUUID(){
 export default function UserResults(){
   const navigate = useNavigate();
   const uuid = useMemo(()=>getUUID(), []);
-  const [results, setResults] = useState<ResultsStatus['results'] | null>(null);
+  const [results, setResults] = useState<Extract<StatusResponse,{status:2}>['results'] | null>(null);
   const [placement, setPlacement] = useState<number | null>(null);
   const [ball, setBall] = useState<string | null>(()=> typeof window !== 'undefined' ? window.localStorage.getItem('omb_user_ball') : null);
 
@@ -25,7 +25,7 @@ export default function UserResults(){
     let timer: number | null = null;
 
     const poll = async ()=>{
-      const res = await mockStatus();
+      const res = await api.status();
       if(cancelled) return;
       handleStatus(res);
     };
