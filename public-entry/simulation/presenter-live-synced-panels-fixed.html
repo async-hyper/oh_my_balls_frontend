@@ -1,0 +1,369 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Presenter · Oh My Balls · Live (Synced Panels · Fixed Top)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#0b0f1a;--card:#111827;--muted:#6b7280;--text:#e5e7eb;--accent:#22d3ee;--ring:0 0 0 2px rgba(34,211,238,.35), 0 10px 20px rgba(0,0,0,.35);--green:#10b981;--red:#ef4444;}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:radial-gradient(1200px 800px at 80% -10%,rgba(34,211,238,.07),transparent 40%),radial-gradient(1200px 800px at 10% 110%,rgba(16,185,129,.07),transparent 40%),var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.badge{font-weight:800;letter-spacing:.06em;color:#0b1220;background:linear-gradient(90deg,#22d3ee,#34d399);padding:6px 10px;border-radius:999px;font-size:12px;text-transform:uppercase;box-shadow:var(--ring)}
+.title{font-size:24px;font-weight:900}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.0));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.timeline{display:flex;gap:8px;align-items:center}
+.ticks{display:grid;grid-template-columns:repeat(31,1fr);gap:4px;width:100%}
+.tick{height:6px;background:rgba(255,255,255,.14);border-radius:4px} .tick.active{background:linear-gradient(90deg,#22d3ee,#34d399);box-shadow:0 0 10px rgba(34,211,238,.6)}
+
+.stage{display:grid;grid-template-columns:6fr 1fr;gap:16px;align-items:stretch}
+.leftPanel, .rightPanel{position:relative}
+.leftPanel .card, .rightPanel .card{height:100%}
+
+.stat{display:flex;align-items:center;justify-content:space-between;margin:8px 0}.stat .v{font-variant:tabular-nums}
+.meta{color:#9ca3af;font-size:13px}
+.big{font-size:40px;font-weight:900}
+
+canvas#chart{display:block;width:100%;height:560px;border-radius:12px;border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))}
+
+.indicatorLine{position:absolute;left:16px;right:16px;height:2px;background:linear-gradient(90deg,#22d3ee,#34d399);
+  box-shadow:0 0 18px rgba(34,211,238,.55);border-radius:2px;pointer-events:none}
+
+.lanesWrap{position:relative;height:560px}
+.laneDot{
+  position:absolute;left:12px;right:12px;height:28px;transform:translateY(-50%);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.02);
+}
+.laneDot .ball{height:24px;min-width:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;letter-spacing:.02em}
+.ball.long{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.6);color:#d1fae5}
+.ball.short{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.6);color:#fee2e2}
+.win{box-shadow:0 0 0 3px rgba(255,255,255,.12),0 0 20px rgba(34,211,238,.6);transform:translateY(-50%) scale(1.04)}
+
+.btn{background:linear-gradient(90deg,#22d3ee,#34d399);color:#0b1220;font-weight:800;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:var(--ring)}
+@media (max-width:1100px){.stage{grid-template-columns:1fr} .lanesWrap, canvas#chart{height:440px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="badge">Oh&nbsp;My&nbsp;Balls</span>
+      <div class="title">Presenter — Live (Synced Panels · Fixed Top)</div>
+    </div>
+    <div class="timeline card" style="padding:8px 12px">
+      <div class="meta">t0</div>
+      <div class="ticks" id="ticks"></div>
+      <div class="meta">t30</div>
+      <div class="meta" id="countdown">30s</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <!-- LEFT: price/trajectory -->
+    <div class="leftPanel">
+      <div class="card" id="leftCard">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+          <div class="stat"><div class="meta">Anchor p0</div><div class="v" id="p0">—</div></div>
+          <div class="stat"><div class="meta">Current</div><div class="v" id="pc">—</div></div>
+          <div class="stat"><div class="meta">Δ %</div><div class="v" id="chg">—</div></div>
+          <div class="stat"><div class="meta">Direction</div><div class="v" id="dir">—</div></div>
+        </div>
+        <div class="meta" style="margin-bottom:8px">Синхрон: шары справа выравнены с сеткой графика. Расширенная сетка ±15%, увеличенные интервалы.</div>
+        <div style="position:relative" id="canvasWrap">
+          <canvas id="chart" width="1200" height="560"></canvas>
+          <div class="indicatorLine" id="indicatorLine" style="top:50%"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn" onclick="resetSim()">Reset</button>
+          <button class="btn" onclick="location.href='presenter-results.html'">Resolve →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: aligned lanes -->
+    <div class="rightPanel">
+      <div class="card" id="rightCard">
+        <div id="lanesHeader" style="font-weight:800;margin-bottom:8px">Balls (S9→B9)</div>
+        <div class="lanesWrap" id="lanesWrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Build timeline ticks
+for(let i=0;i<31;i++){const d=document.createElement('div');d.className='tick';d.id='tick'+i;document.getElementById('ticks').appendChild(d);}
+
+// Labels order (upright): top -> bottom = B9..B1..B0..S0..S1..S9
+const labels = [...Array(9).keys()].map(i=>'B'+(9-i)).concat(['B0','S0']).concat([...Array(9).keys()].map(i=>'S'+(i+1)));
+const grid = labels;
+const mid = (grid.length-1)/2;   // 9.5
+const lanePct = 0.05 / mid;      // set B9/S9 ≈ ±5%
+const clampPctTotal = 0.15;      // hard limit ±15% (еще больше расширили для лучшего интервала)
+const clampLanes = clampPctTotal / lanePct;
+const verticalSpacingMultiplier = 1.8; // множитель для увеличения вертикального расстояния
+
+let p0 = 62000 + (Math.random()*2000-1000);
+let pc = p0;
+
+// simulation state (index space; can move within clamps)
+let idxFloat = mid;
+let dir = Math.random()>0.5?1:-1;
+let stepMax = 2.8;
+let jumpProb = 0.08;
+let jumpSize = 5;
+let tickMs = 100;
+
+const durSec = 30;
+let elapsedMs = 0;
+let sCount = 0;
+
+// trail samples
+const samples = [];
+
+// Canvas setup
+const canvas = document.getElementById('chart');
+const canvasWrap = document.getElementById('canvasWrap');
+const ctx = canvas.getContext('2d');
+const indicatorLine = document.getElementById('indicatorLine');
+
+function resizeCanvasToDisplaySize(){
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if(canvas.width !== Math.round(cssW*dpr) || canvas.height !== Math.round(cssH*dpr)){
+    canvas.width = Math.round(cssW*dpr);
+    canvas.height = Math.round(cssH*dpr);
+  }
+  return dpr;
+}
+
+function setText(id,v){document.getElementById(id).textContent=v;}
+function fmt(n){return '$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+
+// Y scale shared by canvas and right panel (расширенная сетка с большими интервалами)
+function yScale(idxLike){
+  const lo = mid - clampLanes;
+  const hi = mid + clampLanes;
+  const t = (idxLike - lo) / (hi - lo);
+  return canvas.height * t;
+}
+
+// Y scale for DOM positioning с увеличенными интервалами
+function yScaleDOM(idxLike){
+  const centerY = canvas.clientHeight / 2;
+  const maxOffset = canvas.clientHeight / 2;
+  
+  // Увеличиваем расстояние от центра
+  const normalizedPos = (idxLike - mid) / (grid.length - 1) * verticalSpacingMultiplier;
+  const y = centerY + (normalizedPos * maxOffset);
+  
+  return Math.max(0, Math.min(canvas.clientHeight, y));
+}
+
+// Draw price grid & trail on left
+function drawGrid(){
+  const dpr = resizeCanvasToDisplaySize();
+  ctx.save();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // background
+  ctx.fillStyle = "rgba(255,255,255,0.02)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // ±10% boundary lines
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.lineWidth = 1*dpr;
+  const yTop = yScale(mid - clampLanes);
+  const yBot = yScale(mid + clampLanes);
+  ctx.beginPath(); ctx.moveTo(0,yTop); ctx.lineTo(canvas.width,yTop); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,yBot); ctx.lineTo(canvas.width,yBot); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // center line (between B0 and S0)
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  const centerY = canvas.height / 2;
+  ctx.beginPath(); ctx.moveTo(0,centerY); ctx.lineTo(canvas.width,centerY); ctx.stroke();
+
+  // lane gridlines с увеличенными интервалами
+  ctx.strokeStyle = "rgba(255,255,255,0.09)";
+  for(let i=0;i<grid.length;i++){
+    // Используем ту же логику, что и в yScaleDOM, но для canvas координат
+    const centerY = canvas.height / 2;
+    const maxOffset = canvas.height / 2;
+    const normalizedPos = (i - mid) / (grid.length - 1) * verticalSpacingMultiplier;
+    const y = centerY + (normalizedPos * maxOffset);
+    
+    if(y >= 0 && y <= canvas.height) {
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawTrail(){
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save();
+  ctx.lineWidth = 2*dpr;
+  ctx.strokeStyle = "#34d399";
+  ctx.beginPath();
+  for(let k=0;k<samples.length;k++){
+    const s = samples[k];
+    // X mapped 0..30s -> 0..width (with 24px padding)
+    const padL = 24*dpr, padR = 24*dpr;
+    const w = canvas.width - padL - padR;
+    const x = padL + (s.tMs/(durSec*1000))*w;
+    
+    // Используем ту же логику позиционирования, что и для сетки
+    const centerY = canvas.height / 2;
+    const maxOffset = canvas.height / 2;
+    const normalizedPos = (s.idxFloat - mid) / (grid.length - 1) * verticalSpacingMultiplier;
+    const y = centerY + (normalizedPos * maxOffset);
+    
+    if(k===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function updateIndicatorLine(idxForBoard){
+  const y = yScaleDOM(idxForBoard);
+  // place within the canvas wrapper container (same top origin)
+  indicatorLine.style.top = y + "px";
+}
+
+// ----- Right panel: build lanes, sync positions to canvas top -----
+const lanesWrap = document.getElementById('lanesWrap');
+const lanesHeader = document.getElementById('lanesHeader');
+const rightCard = document.getElementById('rightCard');
+const laneEls = [];
+function buildRightLanes(){
+  lanesWrap.innerHTML = '';
+  for(let i=0;i<grid.length;i++){
+    const lab = grid[i];
+    const div = document.createElement('div');
+    div.className = 'laneDot';
+    const side = lab.startsWith('B') ? 'long' : 'short';
+    // Только шарик, без лейбла
+    div.innerHTML = `<span class="ball ${side}">${lab}</span>`;
+    lanesWrap.appendChild(div);
+    laneEls.push(div);
+  }
+}
+function positionRightLanes(){
+  // Match top of lanes to top of canvas drawing area
+  const canvasRect = canvas.getBoundingClientRect();
+  const rightCardRect = rightCard.getBoundingClientRect();
+  const headerH = lanesHeader.offsetHeight + 8; // header + margin
+  
+  // Calculate offset to align top of lanesWrap with top of canvas
+  const offset = canvasRect.top - rightCardRect.top - headerH;
+  
+  // Apply margin-top so lanes start at same top as canvas
+  lanesWrap.style.marginTop = offset + "px";
+  lanesWrap.style.height = canvas.clientHeight + "px";
+
+  // Position each lane dot using DOM coordinate system
+  for(let i=0;i<laneEls.length;i++){
+    const y = yScaleDOM(i); // use DOM scale instead of canvas pixel scale
+    laneEls[i].style.top = y + "px";
+  }
+}
+
+// ----- Winner highlight + numbers -----
+function updateBoard(idxForBoard){
+  const delta = mid - idxForBoard;
+  const offsetPct = delta * lanePct;
+  pc = p0 * (1 + offsetPct);
+
+  laneEls.forEach(el=>el.classList.remove('win'));
+  (laneEls[idxForBoard] || {}).classList?.add('win');
+
+  setText('pc', fmt(pc));
+  const chg = (pc - p0)/p0*100;
+  setText('chg', (chg>=0?'+':'')+chg.toFixed(2)+'%');
+  setText('dir', chg>0? '↑ Long (B)' : chg<0? '↓ Short (S)' : '—');
+
+  updateIndicatorLine(idxForBoard);
+}
+
+// -------- Simulation tick --------
+let timer=null, tickTimer=null;
+function tick(){
+  if(Math.random()<0.15) dir *= -1;
+  let step = (Math.random()*stepMax);
+  if(Math.random()<jumpProb) step += jumpSize;
+  step *= dir;
+  idxFloat += step;
+  if(idxFloat < mid - clampLanes) idxFloat = mid - clampLanes;
+  if(idxFloat > mid + clampLanes) idxFloat = mid + clampLanes;
+
+  const idxClamped = Math.max(0, Math.min(grid.length-1, Math.round(idxFloat)));
+  updateBoard(idxClamped);
+
+  elapsedMs += tickMs;
+  if(elapsedMs>durSec*1000) elapsedMs = durSec*1000;
+  samples.push({tMs: elapsedMs, idxFloat});
+  drawGrid();
+  drawTrail();
+}
+
+function start(){
+  p0 = 62000 + (Math.random()*2000-1000);
+  pc = p0;
+  idxFloat = mid;
+  dir = Math.random()>0.5?1:-1;
+  elapsedMs = 0; sCount = 0;
+  samples.length = 0;
+
+  setText('p0', fmt(p0));
+  setText('pc', fmt(pc));
+  setText('chg','0.00%'); setText('dir','—');
+
+  if(timer) clearInterval(timer);
+  if(tickTimer) clearInterval(tickTimer);
+
+  // seconds timeline
+  timer = setInterval(()=>{
+    const el = document.getElementById('tick'+sCount);
+    if(el) el.classList.add('active');
+    sCount++;
+    if(sCount>30){
+      clearInterval(timer); clearInterval(tickTimer);
+      setTimeout(()=>location.href='presenter-results.html',700);
+    }
+    document.getElementById('countdown').textContent = Math.max(0,30-sCount)+'s';
+  },1000);
+
+  // initial layout + ticks
+  resizeCanvasToDisplaySize();
+  drawGrid();
+  drawTrail();
+  buildRightLanes();
+  positionRightLanes();
+  updateBoard(Math.round(idxFloat));
+
+  tickTimer = setInterval(()=>{ if(elapsedMs < durSec*1000) tick(); }, tickMs);
+}
+
+function resetSim(){
+  document.querySelectorAll('.tick').forEach(el=>el.classList.remove('active'));
+  start();
+}
+
+window.addEventListener('resize', ()=>{ resizeCanvasToDisplaySize(); drawGrid(); drawTrail(); positionRightLanes(); updateBoard(Math.round(idxFloat)); });
+window.addEventListener('load', start);
+</script>
+</body>
+</html>

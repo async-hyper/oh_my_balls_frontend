@@ -1,0 +1,347 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Presenter · Oh My Balls · Live (Upright + Trail, Limited)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#0b0f1a;--card:#111827;--muted:#6b7280;--text:#e5e7eb;--accent:#22d3ee;--ring:0 0 0 2px rgba(34,211,238,.35), 0 10px 20px rgba(0,0,0,.35);--green:#10b981;--red:#ef4444;}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:radial-gradient(1200px 800px at 80% -10%,rgba(34,211,238,.07),transparent 40%),radial-gradient(1200px 800px at 10% 110%,rgba(16,185,129,.07),transparent 40%),var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.badge{font-weight:800;letter-spacing:.06em;color:#0b1220;background:linear-gradient(90deg,#22d3ee,#34d399);padding:6px 10px;border-radius:999px;font-size:12px;text-transform:uppercase;box-shadow:var(--ring)}
+.title{font-size:24px;font-weight:900}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.0));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.timeline{display:flex;gap:8px;align-items:center}
+.ticks{display:grid;grid-template-columns:repeat(31,1fr);gap:4px;width:100%}
+.tick{height:6px;background:rgba(255,255,255,.14);border-radius:4px} .tick.active{background:linear-gradient(90deg,#22d3ee,#34d399);box-shadow:0 0 10px rgba(34,211,238,.6)}
+.stage{display:grid;grid-template-columns:320px 1fr;gap:16px}
+.stat{display:flex;align-items:center;justify-content:space-between;margin:8px 0}.stat .v{font-variant:tabular-nums}
+.board{position:relative;overflow:hidden;height:560px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
+.levels{position:absolute;inset:16px;display:flex;flex-direction:column;justify-content:space-between}
+.level{display:flex;align-items:center;gap:10px}
+.level .label{width:54px;text-align:right;font-variant:tabular-nums;color:#9ca3af;font-size:12px}
+.level .lane{flex:1;height:22px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:2px}
+.ball{height:18px;min-width:18px;border-radius:999px;margin-right:6px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.ball.long{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.6);color:#d1fae5}
+.ball.short{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.6);color:#fee2e2}
+.ball.win{box-shadow:0 0 0 3px rgba(255,255,255,.12),0 0 20px rgba(34,211,238,.6);transform:scale(1.04)}
+.price-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,#22d3ee,#34d399);box-shadow:0 0 20px rgba(34,211,238,.5);transition:top .12s ease}
+.btn{background:linear-gradient(90deg,#22d3ee,#34d399);color:#0b1220;font-weight:800;border:none;border-radius:12px;padding:10px 14px;cursor:pointer;box-shadow:var(--ring)}
+.meta{color:#9ca3af;font-size:13px}
+.big{font-size:40px;font-weight:900}
+.trail-card{grid-column:1 / -1}
+.trail-wrap{position:relative}
+canvas{display:block;width:100%;height:240px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))}
+.trail-legend{position:absolute;right:8px;top:8px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 8px;font-size:12px}
+@media (max-width:1100px){.stage{grid-template-columns:1fr} .trail-card{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="badge">Oh&nbsp;My&nbsp;Balls</span>
+      <div class="title">Presenter — Live (Upright + Trail, Limited)</div>
+    </div>
+    <div class="timeline card" style="padding:8px 12px">
+      <div class="meta">t0</div>
+      <div class="ticks" id="ticks"></div>
+      <div class="meta">t30</div>
+      <div class="meta" id="countdown">30s</div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="card">
+      <div class="stat"><div class="meta">Anchor p0</div><div class="v" id="p0">—</div></div>
+      <div class="stat"><div class="meta">Current</div><div class="v" id="pc">—</div></div>
+      <div class="stat"><div class="meta">Δ %</div><div class="v" id="chg">—</div></div>
+      <div class="stat"><div class="meta">Direction</div><div class="v" id="dir">—</div></div>
+      <hr/>
+      <div class="meta">B9 ≈ +5%, S9 ≈ −5%; траектория жёстко ограничена в пределах ±10% от p0.</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" onclick="resetSim()">Reset</button>
+        <button class="btn" onclick="location.href='presenter-results.html'">Resolve →</button>
+      </div>
+    </div>
+
+    <div class="board card">
+      <div id="priceLine" class="price-line" style="top:50%"></div>
+      <div class="levels" id="levels"></div>
+    </div>
+
+    <div class="card trail-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:800">Trajectory (0…30s)</div>
+        <div class="meta">Y: lanes (B сверху … S снизу), жёсткое ±10%</div>
+      </div>
+      <div class="trail-wrap">
+        <canvas id="trail" width="1200" height="240"></canvas>
+        <div class="trail-legend">• updates every tick</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta" style="margin-top:8px">Настройки: <span style="font-family:monospace">stepMax</span>, <span style="font-family:monospace">jumpProb</span>, <span style="font-family:monospace">jumpSize</span>, <span style="font-family:monospace">tickMs</span>.</div>
+</div>
+
+<script>
+// Build ticks
+for(let i=0;i<31;i++){const d=document.createElement('div');d.className='tick';d.id='tick'+i;document.getElementById('ticks').appendChild(d);}
+
+const levelsElm = document.getElementById('levels');
+// Upright order top -> bottom: B9..B1..B0..S0..S1..S9
+const labels = [...Array(9).keys()].map(i=>'B'+(9-i)).concat(['B0','S0']).concat([...Array(9).keys()].map(i=>'S'+(i+1)));
+const grid = labels;
+
+function makeLane(label){
+  const side = label.startsWith('B') ? 'long' : 'short';
+  const lane = document.createElement('div'); lane.className='level';
+  lane.innerHTML = `<div class="label">${label}</div>
+    <div class="lane" data-label="${label}">
+      <div class="ball ${side}" id="ball-${label}">${label.replace(/\\D/g,'')}</div>
+    </div>`;
+  return lane;
+}
+grid.forEach(l=>levelsElm.appendChild(makeLane(l)));
+
+// ----- Parameters -----
+let p0 = 62000 + (Math.random()*2000-1000);
+let pc = p0;
+const mid = (grid.length-1)/2;             // 9.5
+const lanePct = 0.05 / mid;                // so that B9/S9 map to ±5%
+const clampPctTotal = 0.10;                // hard limit ±10%
+// convert percent clamp into lane-space clamp around mid:
+const clampLanes = clampPctTotal / lanePct;
+
+let idxFloat = mid;                         // start near center
+let dir = Math.random() > 0.5 ? 1 : -1;
+let stepMax = 2.8;
+let jumpProb = 0.08;
+let jumpSize = 5;
+let tickMs = 100;
+
+const durSec = 30;
+let elapsedMs = 0;
+
+// trail
+const samples = [];
+let minIdx = mid - clampLanes, maxIdx = mid + clampLanes;
+
+// canvas
+const canvas = document.getElementById('trail');
+const ctx = canvas.getContext('2d');
+function resizeCanvasToDisplaySize() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+  }
+  return dpr;
+}
+
+function setText(id, v){document.getElementById(id).textContent = v;}
+function fmt(n){return '$'+n.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');}
+
+function yScale(i){
+  // clamp scale within ±10% range plus tiny margin
+  const margin = 0.5; // lanes
+  const lo = Math.max(mid - clampLanes, Math.min(mid + clampLanes, Math.floor(minIdx))) - margin;
+  const hi = Math.min(mid + clampLanes, Math.max(mid - clampLanes, Math.ceil(maxIdx))) + margin;
+  const y = canvas.height * ((i - lo) / (hi - lo));
+  return y;
+}
+function xScale(tMs){
+  const padL = 40, padR = 10;
+  const t = Math.max(0, Math.min(durSec*1000, tMs));
+  const w = canvas.width - padL - padR;
+  return padL + (t / (durSec*1000)) * w;
+}
+
+function drawGrid(){
+  const dpr = resizeCanvasToDisplaySize();
+  ctx.save();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = "rgba(255,255,255,0.02)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // vertical t0/t30
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.lineWidth = 1*dpr;
+  ctx.beginPath();
+  ctx.moveTo(xScale(0), 0); ctx.lineTo(xScale(0), canvas.height);
+  ctx.moveTo(xScale(durSec*1000), 0); ctx.lineTo(xScale(durSec*1000), canvas.height);
+  ctx.stroke();
+
+  // every 5s
+  for(let s=0; s<=durSec; s+=5){
+    ctx.beginPath();
+    ctx.moveTo(xScale(s*1000), 0); ctx.lineTo(xScale(s*1000), canvas.height);
+    ctx.stroke();
+    ctx.fillStyle="rgba(229,231,235,0.6)";
+    ctx.font = `${11*dpr}px Inter, system-ui, sans-serif`;
+    ctx.fillText(`${s}s`, xScale(s*1000)+4*dpr, 14*dpr);
+  }
+
+  // lane guides with labels
+  ctx.strokeStyle = "rgba(255,255,255,0.09)";
+  for(let i=0;i<grid.length;i++){
+    const y = yScale(i);
+    ctx.beginPath();
+    ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(156,163,175,0.9)";
+    ctx.font = `${12*dpr}px Inter, system-ui, sans-serif`;
+    ctx.fillText(grid[i], 6*dpr, y - 4*dpr);
+  }
+
+  // draw ±10% boundary lines
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.setLineDash([4*dpr,4*dpr]);
+  const yTopClamp = yScale(mid - clampLanes);
+  const yBotClamp = yScale(mid + clampLanes);
+  ctx.beginPath(); ctx.moveTo(0,yTopClamp); ctx.lineTo(canvas.width,yTopClamp); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,yBotClamp); ctx.lineTo(canvas.width,yBotClamp); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
+}
+
+function drawTrail(){
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save();
+  ctx.lineWidth = 2*dpr;
+  ctx.strokeStyle = "#34d399";
+  ctx.beginPath();
+  for(let k=0;k<samples.length;k++){
+    const s = samples[k];
+    const x = xScale(s.tMs);
+    const y = yScale(s.idxFloat);
+    if(k===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  const last = samples[samples.length-1];
+  if(last){
+    const x = xScale(last.tMs);
+    const y = yScale(last.idxFloat);
+    ctx.save();
+    ctx.fillStyle = "#22d3ee";
+    ctx.beginPath();
+    ctx.arc(x, y, 3*(window.devicePixelRatio||1), 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function updateBoard(idxForBoard){
+  const delta = mid - idxForBoard;        // positive up (B), negative down (S)
+  const offsetPct = delta * lanePct;      // map to percent
+  pc = p0 * (1 + offsetPct);
+
+  const top = 16 + (levelsElm.clientHeight) * (idxForBoard/(grid.length-1));
+  document.getElementById('priceLine').style.top = top+'px';
+
+  document.querySelectorAll('.ball').forEach(b=>b.classList.remove('win'));
+  const label = grid[idxForBoard];
+  const win = document.getElementById('ball-'+label);
+  if(win) win.classList.add('win');
+
+  setText('pc', fmt(pc));
+  const chg = (pc-p0)/p0*100;
+  setText('chg', (chg>=0?'+':'')+chg.toFixed(2)+'%');
+  setText('dir', chg>0? '↑ Long (B)' : chg<0? '↓ Short (S)' : '—');
+}
+
+let timer=null, tickTimer=null;
+let sCount = 0;
+
+function tick(){
+  if(Math.random() < 0.15) dir *= -1;
+  let step = (Math.random()*stepMax);
+  if(Math.random() < jumpProb) step += jumpSize;
+  step *= dir;
+
+  // advance
+  idxFloat += step
+
+  // clamp within ±10% window around mid (in lanes)
+  if(idxFloat < mid - clampLanes) idxFloat = mid - clampLanes;
+  if(idxFloat > mid + clampLanes) idxFloat = mid + clampLanes;
+
+  // maintain min/max for scale within clamps
+  if(idxFloat < minIdx) minIdx = idxFloat;
+  if(idxFloat > maxIdx) maxIdx = idxFloat;
+
+  const idxClampedToGrid = Math.max(0, Math.min(grid.length-1, Math.round(idxFloat)));
+  updateBoard(idxClampedToGrid);
+
+  elapsedMs += tickMs;
+  if(elapsedMs > durSec*1000) elapsedMs = durSec*1000;
+  samples.push({tMs: elapsedMs, idxFloat});
+  drawGrid();
+  drawTrail();
+}
+
+function start(){
+  // reset
+  p0 = 62000 + (Math.random()*2000-1000);
+  pc = p0;
+  idxFloat = mid;
+  dir = Math.random() > 0.5 ? 1 : -1;
+  minIdx = mid - clampLanes;
+  maxIdx = mid + clampLanes;
+  elapsedMs = 0;
+  sCount = 0;
+  samples.length = 0;
+
+  setText('p0', fmt(p0));
+  setText('pc', fmt(pc));
+  setText('chg','0.00%'); setText('dir','—');
+
+  if(timer) clearInterval(timer);
+  if(tickTimer) clearInterval(tickTimer);
+
+  // seconds timeline
+  timer = setInterval(()=>{
+    const el = document.getElementById('tick'+sCount);
+    if(el) el.classList.add('active');
+    sCount++;
+    if(sCount>30){
+      clearInterval(timer);
+      clearInterval(tickTimer);
+      setTimeout(()=>location.href='presenter-results.html',700);
+    }
+    document.getElementById('countdown').textContent = Math.max(0,30-sCount)+'s';
+  },1000);
+
+  // canvas prep
+  resizeCanvasToDisplaySize();
+  drawGrid();
+  drawTrail();
+
+  // sim
+  tickTimer = setInterval(()=>{
+    if(elapsedMs < durSec*1000) tick();
+  }, tickMs);
+}
+
+function resetSim(){
+  document.querySelectorAll('.tick').forEach(el=>el.classList.remove('active'));
+  start();
+}
+
+window.addEventListener('resize', ()=>{ resizeCanvasToDisplaySize(); drawGrid(); drawTrail(); });
+window.addEventListener('load', start);
+</script>
+</body>
+</html>
