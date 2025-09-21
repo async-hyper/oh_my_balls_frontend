@@ -1,39 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const BALL_SEQUENCE = [...Array(10).keys()].map(i=>`b${i}`).concat([...Array(10).keys()].map(i=>`s${i}`));
-
-let mockStatusBalls: string[] = [];
-let mockStatusCursor = 0;
-
-function resetMockStatus(){
-  mockStatusBalls = [];
-  mockStatusCursor = 0;
-}
-
-async function mockStatusFetch(): Promise<{status:number, balls:string[]}> {
-  if(mockStatusCursor < BALL_SEQUENCE.length){
-    mockStatusBalls = [...mockStatusBalls, BALL_SEQUENCE[mockStatusCursor]];
-    mockStatusCursor += 1;
-  }
-  return Promise.resolve({ status: 0, balls: [...mockStatusBalls] });
-}
+import { mockStatus, resetMockLobby, totalBalls } from '../lib/mockServer';
 
 export default function PresenterLobby(){
   const navigate = useNavigate();
   const [balls, setBalls] = useState<string[]>([]);
 
   useEffect(()=>{
-    resetMockStatus();
+    resetMockLobby();
     setBalls([]);
     let cancelled = false;
     let intervalId: number | null = null;
     const fetchStatus = async ()=>{
-      const res = await mockStatusFetch();
+      const res = await mockStatus();
       if(cancelled) return;
-      const normalized = res.balls.map(ball=>ball.toUpperCase());
-      setBalls(normalized);
-      if(res.balls.length >= BALL_SEQUENCE.length && intervalId !== null){
+      setBalls(res.balls);
+      if(res.balls.length >= totalBalls() && intervalId !== null){
         window.clearInterval(intervalId);
         intervalId = null;
       }
@@ -47,7 +29,7 @@ export default function PresenterLobby(){
   }, []);
 
   useEffect(()=>{
-    if(balls.length >= BALL_SEQUENCE.length){
+    if(balls.length >= totalBalls()){
       const timer = window.setTimeout(()=>navigate('/presenter/live'), 400);
       return ()=> window.clearTimeout(timer);
     }
@@ -100,7 +82,7 @@ export default function PresenterLobby(){
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <div style={{fontWeight:800}}>Participants</div>
-              <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/20</span>
+              <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/{totalBalls()}</span>
             </div>
             <div className="meta">Polling mock status every 1s…</div>
           </div>
