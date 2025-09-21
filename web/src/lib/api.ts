@@ -30,16 +30,8 @@ export type StatusResponse =
   | { status: 1; roundId: number; realtime_price: { price: number; p0: number; startedAt: number; elapsedMs: number; samples: PriceSample[]; standings: StandingEntry[] } }
   | { status: 2; roundId: number; results: { winnerBall: string | null; winnerName: string | null; p0: number | null; p30: number | null; chgPct: number | null; standings: StandingEntry[] } };
 
-const params = new URLSearchParams(location.search);
-const apiMode = params.get('api') ?? 'local';
-const apiBase = apiMode === 'remote'
-  ? REMOTE_BASE
-  : apiMode === 'local'
-    ? LOCAL_BASE
-    : null;
-
 type Phase = 'lobby' | 'live' | 'results';
-type Participant = { ball: string, name?: string };
+type Participant = { ball: string }; // name == ball now
 interface MockState {
   phase: Phase;
   p0: number | null;
@@ -47,9 +39,17 @@ interface MockState {
   chgPct: number;
   nowIdx: number;
   participants: Record<string, Participant>;
-  winner: { ball: string, name?: string } | null;
+  winner: Participant | null;
   startedAt: number | null;
 }
+
+const params = new URLSearchParams(location.search);
+const apiMode = params.get('api') ?? 'local';
+const apiBase = apiMode === 'remote'
+  ? REMOTE_BASE
+  : apiMode === 'local'
+    ? LOCAL_BASE
+    : null;
 
 function getOrCreateUUID(): string {
   const k = 'omb_uuid';
@@ -62,18 +62,20 @@ function getOrCreateUUID(): string {
   return v;
 }
 
-async function join(name?:string): Promise<{ball:string, name?:string}> {
+async function join(): Promise<{ball:string}> {
   const uuid = getOrCreateUUID();
   if(apiBase){
     const res = await fetch(apiBase+'/join', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ uuid, name })
+      body: JSON.stringify({ uuid })
     });
     if(!res.ok) throw new Error('HTTP '+res.status);
-    return res.json();
+    const data = await res.json();
+    return { ball: data.ball };
   }
-  return mockJoin(uuid, name);
+  const result = await mockJoin(uuid);
+  return { ball: result.ball };
 }
 
 async function status(): Promise<StatusResponse> {
@@ -102,7 +104,7 @@ async function reset(): Promise<void> {
   mock.reset();
 }
 
-// Mock layer
+// Mock fallback (localStorage)
 const KEY = 'omb_mock_state_v1';
 const defaultState: MockState = { phase:'lobby', p0:null, p30:null, chgPct:0, nowIdx:MID_INDEX, startedAt:null, participants:{}, winner:null };
 
@@ -131,18 +133,17 @@ function assignBall(existing: Record<string,Participant>){
   const used = new Set(Object.values(existing).map(p=>p.ball));
   const remaining = LANES.filter(b=>!used.has(b));
   if(remaining.length===0) return LANES[Math.floor(Math.random()*LANES.length)];
-  return remaining[Math.floor(Math.random()*remaining.length)];
+  const index = Math.floor(Math.random()*remaining.length);
+  return remaining[index];
 }
 
-const namePool = ["Atlas","Nova","Zora","Kai","Mira","Juno","Vega","Rex","Luna","Orion","Echo","Rune","Iris","Nix","Axel","Skye","Pax","Rio","Nyx","Zed"];
-
-async function mockJoin(uuid:string, name?:string){
+async function mockJoin(uuid:string){
   const s = read();
   if(!s.participants[uuid]){
-    s.participants[uuid] = { ball: assignBall(s.participants), name: name || namePool[Math.floor(Math.random()*namePool.length)] };
+    s.participants[uuid] = { ball: assignBall(s.participants) };
     write(s);
   }
-  return { ball: s.participants[uuid].ball, name: s.participants[uuid].name };
+  return { ball: s.participants[uuid].ball };
 }
 
 async function mockStatus(): Promise<StatusResponse>{
@@ -152,7 +153,7 @@ async function mockStatus(): Promise<StatusResponse>{
       status: 0,
       roundId: 1,
       capacity: LANES.length,
-      participants: Object.entries(state.participants).map(([uuid, value])=>({ uuid, ball: value.ball, name: value.name || '', isBot: false }))
+      participants: Object.entries(state.participants).map(([uuid, value])=>({ uuid, ball: value.ball, name: value.ball, isBot: uuid.startsWith('bot-') }))
     };
   }
   if(state.phase === 'live' && state.p0 && state.startedAt){
@@ -175,7 +176,7 @@ async function mockStatus(): Promise<StatusResponse>{
     roundId: 1,
     results: {
       winnerBall: state.winner?.ball ?? null,
-      winnerName: state.winner?.name ?? null,
+      winnerName: state.winner?.ball ?? null,
       p0: state.p0,
       p30: state.p30,
       chgPct: state.chgPct,
@@ -184,7 +185,6 @@ async function mockStatus(): Promise<StatusResponse>{
   };
 }
 
-// mock controls for local testing
 export const mock = {
   reset(){ write({ ...defaultState, participants:{} }); },
   start(){ const s=read(); s.phase='live'; s.p0 = 62000 + (Math.random()*2000-1000); s.startedAt = Date.now(); s.chgPct = 0; s.p30 = null; s.winner = null; write(s); },

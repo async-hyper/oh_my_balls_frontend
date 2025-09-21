@@ -61,6 +61,15 @@ function saveState(state){
 
 let state = loadState();
 
+function shuffle(order){
+  const copy = [...order];
+  for(let i=copy.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 function availableBalls(order = LANES){
   const taken = new Set(state.participants.map(p => p.ball));
   return order.filter(ball => !taken.has(ball));
@@ -68,17 +77,6 @@ function availableBalls(order = LANES){
 
 function ensureParticipant(uuid){
   return state.participants.find(p => p.uuid === uuid);
-}
-
-function playerName(uuid){
-  return `Player ${uuid.slice(0,4).toUpperCase()}`;
-}
-
-function nextBotName(fallback){
-  const used = new Set(state.participants.filter(p=>p.isBot).map(p=>p.name));
-  if(!used.has(fallback)) return fallback;
-  const alt = BOT_FILL_ORDER.find(name => !used.has(name));
-  return alt ?? `Bot-${state.participants.length + 1}`;
 }
 
 function laneForBall(ball){
@@ -107,7 +105,6 @@ function computeStandings(lanePosition){
     .map(p => ({
       uuid: p.uuid,
       ball: p.ball,
-      name: p.name,
       isBot: !!p.isBot,
       joinedAt: p.joinedAt,
       distance: Math.abs(lanePosition - laneForBall(p.ball))
@@ -116,7 +113,6 @@ function computeStandings(lanePosition){
     .map((entry, idx)=> ({
       uuid: entry.uuid,
       ball: entry.ball,
-      name: entry.name,
       isBot: entry.isBot,
       position: idx + 1,
       distance: entry.distance
@@ -156,7 +152,7 @@ function concludeRound(){
   live.finalPrice = finalSample.price;
   state.results = {
     winnerBall: winner ? winner.ball : null,
-    winnerName: winner ? winner.name : null,
+    winnerName: winner ? winner.ball : null,
     p0: live.p0,
     p30: finalSample.price,
     chgPct: live.p0 ? (finalSample.price - live.p0) / live.p0 : null,
@@ -253,29 +249,29 @@ function handleJoin(req, res, body){
     }
     let participant = ensureParticipant(uuid);
     if(participant){
-      writeJson(res, 200, { ball: participant.ball, name: participant.name });
-      return;
-    }
-    const available = availableBalls();
-    if(available.length === 0){
-      writeJson(res, 409, { error: 'Game full' });
-      return;
-    }
-    const assignedBall = available[0];
-    participant = {
-      uuid,
-      ball: assignedBall,
-      name: name || playerName(uuid),
-      isBot: false,
-      joinedAt: Date.now()
-    };
-    state.participants.push(participant);
+    writeJson(res, 200, { ball: participant.ball, name: participant.ball });
+    return;
+  }
+  const available = shuffle(availableBalls());
+  if(available.length === 0){
+    writeJson(res, 409, { error: 'Game full' });
+    return;
+  }
+  const assignedBall = available[0];
+  participant = {
+    uuid,
+    ball: assignedBall,
+    name: assignedBall,
+    isBot: false,
+    joinedAt: Date.now()
+  };
+  state.participants.push(participant);
     if(state.phase === 0 && state.participants.length >= TOTAL_BALLS){
       startLivePhase();
     }else{
       saveState(state);
     }
-    writeJson(res, 200, { ball: participant.ball, name: participant.name });
+    writeJson(res, 200, { ball: participant.ball, name: participant.ball });
   }catch(err){
     writeJson(res, 400, { error: err.message || 'Invalid JSON' });
   }
@@ -283,14 +279,14 @@ function handleJoin(req, res, body){
 
 function forceStart(){
   state = loadState();
-  const available = availableBalls(BOT_FILL_ORDER);
+  const available = shuffle(availableBalls(BOT_FILL_ORDER));
   available.forEach((ball, idx)=>{
     const botUuid = `bot-${ball.toLowerCase()}`;
     if(ensureParticipant(botUuid)) return;
     state.participants.push({
       uuid: botUuid,
       ball,
-      name: nextBotName(ball),
+      name: ball,
       isBot: true,
       joinedAt: Date.now() + idx
     });
@@ -302,12 +298,12 @@ function handleStatus(res){
   state = loadState();
   ensureLiveSamples();
   if(state.phase === 0){
-    writeJson(res, 200, {
-      status: 0,
-      roundId: state.roundId,
-      capacity: TOTAL_BALLS,
-      participants: state.participants.map(({ uuid, ball, name, isBot })=>({ uuid, ball, name, isBot }))
-    });
+  writeJson(res, 200, {
+    status: 0,
+    roundId: state.roundId,
+    capacity: TOTAL_BALLS,
+    participants: state.participants.map(({ uuid, ball, isBot })=>({ uuid, ball, name: ball, isBot }))
+  });
     return;
   }
   if(state.phase === 1 && state.live.p0 && state.live.startedAt){
@@ -322,7 +318,7 @@ function handleStatus(res){
         startedAt: state.live.startedAt,
         elapsedMs: latest ? latest.tMs : 0,
         samples: state.live.samples,
-        standings: computeStandings(lane)
+        standings: computeStandings(lane).map(entry=>({ ...entry, name: entry.ball }))
       }
     });
     return;
@@ -332,11 +328,11 @@ function handleStatus(res){
     roundId: state.roundId,
     results: {
       winnerBall: state.results.winnerBall,
-      winnerName: state.results.winnerName,
+      winnerName: state.results.winnerBall,
       p0: state.results.p0,
       p30: state.results.p30,
       chgPct: state.results.chgPct,
-      standings: state.results.standings
+      standings: state.results.standings.map(entry=>({ ...entry, name: entry.ball }))
     }
   });
 }
