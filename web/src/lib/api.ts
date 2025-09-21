@@ -43,8 +43,19 @@ interface MockState {
   startedAt: number | null;
 }
 
+type ApiMode = 'remote' | 'local' | 'mock';
+
 const params = new URLSearchParams(location.search);
-const apiMode = params.get('api') ?? 'local';
+const requestedMode = params.get('api');
+
+function resolveMode(): ApiMode {
+  if(requestedMode === 'remote' || requestedMode === 'local' || requestedMode === 'mock'){
+    return requestedMode;
+  }
+  return import.meta.env.PROD ? 'remote' : 'local';
+}
+
+const apiMode: ApiMode = resolveMode();
 const apiBase = apiMode === 'remote'
   ? REMOTE_BASE
   : apiMode === 'local'

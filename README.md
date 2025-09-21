@@ -31,9 +31,10 @@ cd web
 npm run dev
 ```
 - Opens at `http://localhost:5173`
-- By default the app targets the local API (`?api=local`). Other options:
+- Default mode in dev: local API. Override via query string:
+  - `?api=local` — force localhost API (default in dev)
+  - `?api=remote` — hit `https://api-omb.antosha.app`
   - `?api=mock` — legacy localStorage mock
-  - `?api=remote` — production backend (`https://api-omb.antosha.app`)
 
 ### 4. Manual regression checklist
 1. Presenter lobby (`#/presenter/lobby`): verify empty state → **Force Start** to auto-fill bots and switch to live.
@@ -47,7 +48,7 @@ npm run dev
 ## Production Deployment
 
 ### Frontend (static)
-1. Build assets:
+1. Build assets (production bundle defaults to the remote API):
    ```bash
    cd web
    npm run build
@@ -64,7 +65,7 @@ NODE_ENV=production PORT=4000 node server.js
 Proxy `/join`, `/status`, `/start`, `/reset` through nginx to that port. Note that it persists state on disk (`state.json`); bake a startup task to clear or rotate it between sessions if needed.
 
 ### Switching to Real Backend
-Once the production backend is available, configure the frontend with `?api=remote` or set the default mode inside `web/src/lib/api.ts`.
+Once the production backend is available, simply deploy the bundle—without query overrides it targets `https://api-omb.antosha.app`. Use `?api=local` / `?api=mock` only for troubleshooting sessions.
 
 ---
 
