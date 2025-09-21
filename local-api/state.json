@@ -1,7 +1,15 @@
 {
   "phase": 0,
-  "roundId": 1,
-  "participants": [],
+  "roundId": 1758460540302,
+  "participants": [
+    {
+      "uuid": "995e82ba-31e1-4acf-958d-ad50d6fe714e",
+      "ball": "B9",
+      "name": "Player 995E",
+      "isBot": false,
+      "joinedAt": 1758460541335
+    }
+  ],
   "live": {
     "startedAt": null,
     "p0": null,

@@ -157,12 +157,11 @@ async function mockStatus(): Promise<StatusResponse>{
   }
   if(state.phase === 'live' && state.p0 && state.startedAt){
     const elapsed = Date.now() - state.startedAt;
-    const lane = priceToLane(state.p0, state.p0 * (1 + state.chgPct));
     return {
       status: 1,
       roundId: 1,
       realtime_price: {
-        price: state.p0 * (1 + state.chgPct),
+        price: state.p0 * (1 + (state.chgPct ?? 0)),
         p0: state.p0,
         startedAt: state.startedAt,
         elapsedMs: elapsed,

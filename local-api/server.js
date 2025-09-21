@@ -282,6 +282,7 @@ function handleJoin(req, res, body){
 }
 
 function forceStart(){
+  state = loadState();
   const available = availableBalls(BOT_FILL_ORDER);
   available.forEach((ball, idx)=>{
     const botUuid = `bot-${ball.toLowerCase()}`;
@@ -295,16 +296,6 @@ function forceStart(){
     });
   });
   startLivePhase();
-}
-
-function handleStart(res){
-  state = loadState();
-  if(state.phase === 1){
-    writeJson(res, 409, { error: 'Round already live' });
-    return;
-  }
-  forceStart();
-  writeJson(res, 200, { ok: true });
 }
 
 function handleStatus(res){

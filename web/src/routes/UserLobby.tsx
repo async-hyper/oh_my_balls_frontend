@@ -28,8 +28,8 @@ export default function UserLobby(){
       try{
         const res = await api.join();
         if(cancelled) return;
-        setBall(res.ball);
-        setName(res.name);
+        setBall(res.ball ?? null);
+        setName(res.name ?? null);
         if(typeof window !== 'undefined'){
           window.localStorage.setItem('omb_user_ball', res.ball);
         }

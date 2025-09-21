@@ -1,6 +1,8 @@
 # Doing Now — Shared Mock Backend & Synced Clients
 
-_Last updated: in-progress refactor to persistent mock API. All items below reflect current status._
+_Last updated: local API is live; remaining work focuses on polishing results UX + tooling. All items below reflect current status._
+
+**Local API:** `local-api/server.js` (plain Node HTTP server) now exposes `/join`, `/status`, `/start`, `/reset`. Run it with `cd local-api && node server.js` before starting the Vite dev server. Default port `4000` (override via `PORT`).
 
 ## Context Snapshot
 - React/Vite frontend (`web/`) already mirrors the HTML designs.
@@ -27,18 +29,21 @@ _Last updated: in-progress refactor to persistent mock API. All items below refl
 - User live polls 300 ms, displays countdown/progress, placement, Δ%, and persists assigned ball.
 - Shared helpers (`game.ts`) provide `priceToLane`, `placementForBall`, etc.
 
-### 4. Phase-Based Navigation & Verification ⚠️ partially complete
+### 4. Phase-Based Navigation & Verification ✅ / ⚠️ follow-ups noted
 - `/status` phase 2 exposes final standings, winner, p0/p30/Δ% (✅).
 - Presenter/User results read shared data; “New Round” resets store + clears local ball cache (✅).
 - Manual regression checklist (run before demos):
-  1. `cd web && npm run dev`.
-  2. Open `#/presenter/lobby` — confirm empty table → click **Force Start** → lobby fills bots, auto-routes to live.
-  3. Open `#/user/lobby` in another tab — ensure join assigns ball and presenter list includes the user.
-  4. Observe live screens (presenter + user) stay in sync; placement updates match standings.
-  5. Let timer finish (or click Resolve) → both sides reach results with same winner stats.
-  6. Click **New Round** on presenter results → verify lobby resets (participants cleared) and returning user gets fresh assignment.
-- [ ] TODO: add quick utility/CLI to wipe `mock-data.json` without using UI (optional).
-- [ ] TODO: extend manual checklist to cover multi-user scenario (2+ real players).
+  1. Start API: `cd local-api && node server.js` (keep running).
+  2. In another shell: `cd web && npm run dev`.
+  3. Open `#/presenter/lobby` — confirm empty table → click **Force Start** → lobby fills bots, auto-routes to live.
+  4. Open `#/user/lobby` in another tab — ensure join assigns ball and presenter list includes the user.
+  5. Observe live screens (presenter + user) stay in sync; placement updates match standings.
+  6. Let timer finish (or click Resolve) → both sides reach results with same winner stats.
+  7. Click **New Round** on presenter results → verify lobby resets (participants cleared) and returning user gets fresh assignment.
+- [ ] TODO: CLI helper to wipe `local-api/state.json` (currently `POST /reset` or manual delete).
+- [ ] TODO: Extend manual checklist with 2+ concurrent users (mid-round join, force-start while players join).
+- [ ] TODO: Presenter results — display full standings table (not just winner).
+- [ ] TODO: Optional dev endpoint to expose raw price samples (for debugging charts).
 
 ## Next Verification Steps for QA / Teammates
 1. Follow the manual regression checklist above end-to-end.
