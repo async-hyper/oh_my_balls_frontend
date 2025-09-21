@@ -1,65 +1,74 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-interface PlayerRow {
-  id: number;
-  name: string;
-  ball: string;
-  joined: boolean;
+const BALL_SEQUENCE = [...Array(10).keys()].map(i=>`b${i}`).concat([...Array(10).keys()].map(i=>`s${i}`));
+
+let mockStatusBalls: string[] = [];
+let mockStatusCursor = 0;
+
+function resetMockStatus(){
+  mockStatusBalls = [];
+  mockStatusCursor = 0;
 }
 
-const NAME_POOL = ["Atlas","Nova","Zora","Kai","Mira","Juno","Vega","Rex","Luna","Orion","Echo","Rune","Iris","Nix","Axel","Skye","Pax","Rio","Nyx","Zed"];
-const BALL_POOL = [...Array(10).keys()].map(i=>`B${i}`).concat([...Array(10).keys()].map(i=>`S${i}`));
+async function mockStatusFetch(): Promise<{status:number, balls:string[]}> {
+  if(mockStatusCursor < BALL_SEQUENCE.length){
+    mockStatusBalls = [...mockStatusBalls, BALL_SEQUENCE[mockStatusCursor]];
+    mockStatusCursor += 1;
+  }
+  return Promise.resolve({ status: 0, balls: [...mockStatusBalls] });
+}
 
 export default function PresenterLobby(){
-  const [players, setPlayers] = useState<PlayerRow[]>([]);
-  const nextIdRef = useRef(1);
+  const navigate = useNavigate();
+  const [balls, setBalls] = useState<string[]>([]);
 
-  const addPlayer = useCallback(()=>{
-    setPlayers(prev => {
-      if(prev.length >= 20) return prev;
-      const used = new Set(prev.map(p=>p.ball));
-      const available = BALL_POOL.filter(ball=>!used.has(ball));
-      if(available.length === 0) return prev;
-      const name = NAME_POOL[Math.floor(Math.random()*NAME_POOL.length)];
-      const ball = available[Math.floor(Math.random()*available.length)];
-      const player: PlayerRow = { id: nextIdRef.current++, name, ball, joined:true };
-      return [...prev, player];
-    });
-  }, []);
-
-  const seedPlayers = useCallback(()=>{
-    nextIdRef.current = 1;
-    setPlayers(()=>{
-      const seeded: PlayerRow[] = [];
-      for(let i=0;i<12;i++){
-        const used = new Set(seeded.map(p=>p.ball));
-        const available = BALL_POOL.filter(ball=>!used.has(ball));
-        if(!available.length) break;
-        const name = NAME_POOL[Math.floor(Math.random()*NAME_POOL.length)];
-        const ball = available[Math.floor(Math.random()*available.length)];
-        seeded.push({ id: nextIdRef.current++, name, ball, joined:true });
+  useEffect(()=>{
+    resetMockStatus();
+    setBalls([]);
+    let cancelled = false;
+    let intervalId: number | null = null;
+    const fetchStatus = async ()=>{
+      const res = await mockStatusFetch();
+      if(cancelled) return;
+      const normalized = res.balls.map(ball=>ball.toUpperCase());
+      setBalls(normalized);
+      if(res.balls.length >= BALL_SEQUENCE.length && intervalId !== null){
+        window.clearInterval(intervalId);
+        intervalId = null;
       }
-      return seeded;
-    });
+    };
+    fetchStatus();
+    intervalId = window.setInterval(fetchStatus, 1000) as unknown as number;
+    return ()=>{
+      cancelled = true;
+      if(intervalId !== null) window.clearInterval(intervalId);
+    };
   }, []);
 
-  const participantCount = players.length;
+  useEffect(()=>{
+    if(balls.length >= BALL_SEQUENCE.length){
+      const timer = window.setTimeout(()=>navigate('/presenter/live'), 400);
+      return ()=> window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [balls.length, navigate]);
 
   const rows = useMemo(()=>{
-    if(participantCount === 0) return null;
-    return players.map((p, idx)=>{
-      const side = p.ball.startsWith('B') ? 'long' : 'short';
+    if(balls.length === 0) return null;
+    return balls.map((ball, idx)=>{
+      const side = ball.startsWith('B') ? 'long' : 'short';
       return (
-        <tr key={p.id}>
+        <tr key={ball+idx}>
           <td className="meta">{idx+1}</td>
-          <td>{p.name}</td>
-          <td><span className={`pill ${side}`}>{p.ball}</span></td>
-          <td><span className="meta">{p.joined ? 'Ready' : 'Pending'}</span></td>
+          <td><span className={`pill ${side}`}>{ball}</span></td>
+          <td><span className="meta">Ready</span></td>
         </tr>
       );
     });
-  }, [players, participantCount]);
+  }, [balls]);
 
+  const participantCount = balls.length;
   return (
     <div className="container">
       <div className="header">
@@ -93,24 +102,18 @@ export default function PresenterLobby(){
               <div style={{fontWeight:800}}>Participants</div>
               <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/20</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <button className="btn" onClick={seedPlayers}>Seed Demo</button>
-              <button className="btn" onClick={addPlayer}>+ Add</button>
-            </div>
+            <div className="meta">Polling mock status every 1s…</div>
           </div>
           <table className="table" id="ptable">
             <thead>
-              <tr><th style={{width:44}}>#</th><th>Name</th><th>Ball</th><th>Status</th></tr>
+              <tr><th style={{width:44}}>#</th><th>Ball</th><th>Status</th></tr>
             </thead>
             <tbody>
               {rows || (
-                <tr><td colSpan={4} className="meta" style={{textAlign:'center',padding:'18px 10px'}}>Waiting for players…</td></tr>
+                <tr><td colSpan={3} className="meta" style={{textAlign:'center',padding:'18px 10px'}}>Waiting for players…</td></tr>
               )}
             </tbody>
           </table>
-          <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:12}}>
-            <button className="btn" onClick={()=>{ window.location.hash = '#/presenter/live'; }}>Start Game →</button>
-          </div>
         </div>
       </div>
 
