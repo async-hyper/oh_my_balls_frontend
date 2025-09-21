@@ -1,0 +1,165 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>User · Oh My Balls · Live</title>
+<style>
+
+:root{
+  --bg:#0b0f1a;
+  --card:#111827;
+  --muted:#6b7280;
+  --text:#e5e7eb;
+  --accent:#22d3ee;
+  --green:#10b981;
+  --red:#ef4444;
+  --yellow:#f59e0b;
+  --ring:0 0 0 2px rgba(34,211,238,.35), 0 10px 20px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:radial-gradient(1200px 800px at 80% -10%,rgba(34,211,238,.07),transparent 40%),
+             radial-gradient(1200px 800px at 10% 110%,rgba(16,185,129,.07),transparent 40%),
+             var(--bg);
+  color:var(--text);
+  font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  display:flex;flex-direction:column;min-height:100%;
+}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.badge{font-weight:700;letter-spacing:.06em;color:#0b1220;background:linear-gradient(90deg,#34d399,#22d3ee);padding:6px 10px;border-radius:999px;font-size:12px;text-transform:uppercase;box-shadow:var(--ring)}
+.title{font-size:24px;font-weight:800;line-height:1.1}
+.card{
+  background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.0));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);
+}
+.grid{display:grid;gap:16px}
+.btn{
+  background:linear-gradient(90deg,#22d3ee,#34d399);
+  color:#0b1220;font-weight:700;border:none;border-radius:12px;padding:10px 14px;
+  cursor:pointer;box-shadow:var(--ring);transition:transform .06s ease;
+}
+.btn:active{transform:translateY(1px)}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.table th{color:#9ca3af;text-align:left;font-weight:600}
+.kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 6px
+}
+.qr{
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size:16px 16px;
+  border:1px dashed rgba(255,255,255,.2);
+  border-radius:16px;display:flex;align-items:center;justify-content:center;
+  aspect-ratio:1/1;min-height:240px;
+}
+.meta{color:var(--muted);font-size:13px}
+.pill{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.long{background:rgba(16,185,129,.12);color:#a7f3d0;border:1px solid rgba(16,185,129,.35)}
+.pill.short{background:rgba(239,68,68,.12);color:#fecaca;border:1px solid rgba(239,68,68,.35)}
+.tag{background:rgba(34,211,238,.14);color:#a5f3fc;border:1px solid rgba(34,211,238,.35);padding:3px 8px;border-radius:999px;font-size:12px}
+.notice{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fde68a;padding:10px;border-radius:10px}
+.footer{margin-top:auto;color:#9ca3af;font-size:12px;opacity:.8;text-align:center;padding:12px}
+hr{border:none;border-top:1px solid rgba(255,255,255,.08);margin:16px 0}
+/* Presenter live specific */
+.stage{
+  display:grid;grid-template-columns:320px 1fr;gap:16px;
+}
+.board{
+  position:relative;overflow:hidden;height:560px;
+  background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
+  border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;
+}
+.levels{position:absolute;inset:16px;display:flex;flex-direction:column;justify-content:space-between}
+.level{display:flex;align-items:center;gap:10px}
+.level .label{
+  width:54px;text-align:right;font-variant:tabular-nums;color:#9ca3af;font-size:12px
+}
+.level .lane{flex:1;height:22px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:2px}
+.ball{
+  height:18px;min-width:18px;border-radius:999px;margin-right:6px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;letter-spacing:.02em;
+}
+.ball.long{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.6);color:#d1fae5}
+.ball.short{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.6);color:#fee2e2}
+.ball.win{box-shadow:0 0 0 3px rgba(255,255,255,.12), 0 0 20px rgba(34,211,238,.6);transform:scale(1.04)}
+.price-line{
+  position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,#22d3ee,#34d399);box-shadow:0 0 20px rgba(34,211,238,.5);
+  transition:top .15s ease;
+}
+.timeline{display:flex;gap:8px;align-items:center}
+.ticks{display:grid;grid-template-columns:repeat(31,1fr);gap:4px;width:100%}
+.tick{height:6px;background:rgba(255,255,255,.14);border-radius:4px;position:relative}
+.tick.active{background:linear-gradient(90deg,#22d3ee,#34d399);box-shadow:0 0 10px rgba(34,211,238,.6)}
+.stat{display:flex;align-items:center;justify-content:space-between;margin:8px 0}
+.stat .v{font-variant:tabular-nums}
+.big{font-size:40px;font-weight:900;letter-spacing:.02em}
+.win-card{display:flex;gap:16px;align-items:center}
+.win-badge{font-size:13px}
+@media (max-width: 1100px){
+  .stage{grid-template-columns:1fr}
+}
+
+.container{max-width:720px}
+.progress{height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+.progress > div{height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#34d399)}
+.placing{font-variant:tabular-nums;font-size:36px;font-weight:900}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <span class="badge">Oh&nbsp;My&nbsp;Balls</span>
+      <div class="title">Live</div>
+    </div>
+    <span class="tag" id="timer">30s</span>
+  </div>
+
+  <div class="card" style="text-align:center;padding:28px">
+    <div class="meta">Your Ball</div>
+    <div id="ball" class="pill long" style="display:inline-block;margin:8px 0;font-size:24px;padding:8px 14px">B0</div>
+    <div class="meta">Ball index (0..20)</div>
+    <div id="pos" class="placing">10</div>
+    <hr/>
+    <div class="meta" id="hint">You’re close! Hold tight…</div>
+    <div class="progress" style="margin-top:10px"><div id="prog"></div></div>
+  </div>
+
+  <div class="footer">You’ll see final place on resolve</div>
+</div>
+
+<script>
+// demo data
+const isLong = Math.random()>0.5;
+const idx = Math.floor(Math.random()*10);
+const id = (isLong?'B':'S')+idx;
+const ball = document.getElementById('ball');
+ball.textContent = id;
+ball.classList.toggle('long', isLong);
+ball.classList.toggle('short', !isLong);
+
+let t=0;
+const timer = setInterval(()=>{t++;document.getElementById('timer').textContent=(30-t)+'s';document.getElementById('prog').style.width=(t/30*100)+'%';if(t>=30){clearInterval(timer);location.href='user-results.html';}},1000);
+
+// Fake position drift between 0..20
+function rand(a,b){return Math.random()*(b-a)+a}
+let pos=10;
+setInterval(()=>{
+  pos = Math.max(0, Math.min(20, pos + rand(-1.2,1.2)));
+  document.getElementById('pos').textContent = Math.round(pos);
+  document.getElementById('hint').textContent = pos<7? "Looking good 👀" : pos>14? "Needs a big move…" : "Neck and neck…";
+},350);
+</script>
+</body>
+</html>
