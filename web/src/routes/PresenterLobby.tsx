@@ -107,7 +107,13 @@ export default function PresenterLobby(){
               <span className="pill" id="count" style={{background:'rgba(34,211,238,.15)',border:'1px solid rgba(34,211,238,.35)',color:'#67e8f9'}}>{participantCount}/{capacity}</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-              <button className="btn" onClick={()=>forceStart()}>Force Start</button>
+              <button className="btn" onClick={async ()=>{
+                try{
+                  await forceStart();
+                }catch(err){
+                  setError((err as Error).message);
+                }
+              }}>Force Start</button>
             </div>
           </div>
           <table className="table" id="ptable">

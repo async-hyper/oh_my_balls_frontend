@@ -1,5 +1,5 @@
 import { getState, resetState, updateState, Participant, MockState, StandingEntry, PriceSample } from './mockStore';
-import { LANES, indexForBall, LANE_PCT, MID_INDEX } from './game';
+import { LANES, indexForBall, LANE_PCT, MID_INDEX, priceToLane } from './game';
 
 const TOTAL_BALLS = LANES.length;
 const LOBBY_PHASE: 0 = 0;
@@ -62,16 +62,6 @@ function nextBotName(state: MockState): string {
   const used = new Set(state.participants.filter(p=>p.isBot).map(p=>p.name));
   const available = BOT_NAME_SEQUENCE.find(name => !used.has(name));
   return available ?? `Bot-${state.participants.length + 1}`;
-}
-
-function priceToLane(p0: number, price: number): number {
-  const offsetPct = (price / p0) - 1;
-  return MID_INDEX - (offsetPct / LANE_PCT);
-}
-
-function laneToPrice(p0: number, lane: number): number {
-  const offsetPct = (MID_INDEX - lane) * LANE_PCT;
-  return p0 * (1 + offsetPct);
 }
 
 function computeStandings(state: MockState, lanePosition: number): StandingEntry[] {
@@ -215,6 +205,9 @@ export async function mockJoin(uuid: string): Promise<{ ball: string; name: stri
       joinedAt: Date.now()
     };
     state.participants.push(entry);
+    if(state.phase === LOBBY_PHASE && state.participants.length >= TOTAL_BALLS){
+      startLivePhase(state);
+    }
     return { ball: entry.ball, name: entry.name };
   });
 }
