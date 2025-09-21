@@ -1,5 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { mockLiveStatus, resetMockLive } from '../lib/mockServer';
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
 const tickMs = 100;
@@ -14,6 +16,7 @@ function fmtPct(p) {
     return (p >= 0 ? '+' : '') + (p * 100).toFixed(2) + '%';
 }
 export default function PresenterLive() {
+    const navigate = useNavigate();
     const labels = useMemo(() => [
         ...Array.from({ length: 9 }, (_, i) => `B${9 - i}`),
         'B0', 'S0',
@@ -48,9 +51,8 @@ export default function PresenterLive() {
         const indicator = indicatorEl;
         const ctx = context;
         const samples = [];
-        let p0Val = 62000 + (Math.random() * 2000 - 1000);
+        let p0Val = null;
         let idxFloat = mid;
-        let dir = Math.random() > 0.5 ? 1 : -1;
         let elapsedMs = 0;
         let secCount = 0;
         let tickTimer = null;
@@ -183,56 +185,27 @@ export default function PresenterLive() {
                 else
                     el.classList.remove('win');
             });
-            const delta = mid - idxRounded;
-            const offsetPct = delta * lanePct;
-            const current = p0Val * (1 + offsetPct);
-            setPc(current);
-            setChgPct(p0Val ? (current - p0Val) / p0Val : 0);
-            setDirection(offsetPct > 0 ? '↑ Long (B)' : offsetPct < 0 ? '↓ Short (S)' : '—');
             updateIndicatorLine(idxRounded);
         }
-        function tick() {
-            if (Math.random() < 0.15)
-                dir *= -1;
-            let step = Math.random() * 1.5;
-            if (Math.random() < 0.05)
-                step += 2.5;
-            step *= dir;
-            idxFloat += step;
-            const lo = mid - clampLanes;
-            const hi = mid + clampLanes;
-            if (idxFloat < lo)
-                idxFloat = lo;
-            if (idxFloat > hi)
-                idxFloat = hi;
-            const idxRounded = Math.max(0, Math.min(labels.length - 1, Math.round(idxFloat)));
-            elapsedMs += tickMs;
-            if (elapsedMs > durSec * 1000)
-                elapsedMs = durSec * 1000;
-            samples.push({ tMs: elapsedMs, idxFloat });
-            drawGrid();
-            drawTrail();
-            updateBoard(idxRounded);
-        }
         function start() {
+            resetMockLive();
             laneEls.forEach(el => el?.classList.remove('win'));
             tickEls.forEach(el => el?.classList.remove('active'));
-            p0Val = 62000 + (Math.random() * 2000 - 1000);
+            p0Val = null;
             idxFloat = mid;
-            dir = Math.random() > 0.5 ? 1 : -1;
             elapsedMs = 0;
             secCount = 0;
             samples.length = 0;
-            setP0(p0Val);
-            setPc(p0Val);
-            setChgPct(0);
+            setP0(null);
+            setPc(null);
+            setChgPct(null);
             setDirection('—');
             setCountdown(durSec);
             resizeCanvasToDisplaySize();
             drawGrid();
             drawTrail();
             positionRightLanes();
-            updateBoard(Math.round(idxFloat));
+            updateIndicatorLine(Math.round(idxFloat));
             if (secTimer)
                 window.clearInterval(secTimer);
             if (tickTimer)
@@ -253,14 +226,49 @@ export default function PresenterLive() {
                         window.clearInterval(tickTimer);
                         tickTimer = null;
                     }
-                    setTimeout(() => { window.location.hash = '#/presenter/results'; }, 700);
+                    setTimeout(() => { navigate('/presenter/results'); }, 700);
                 }
             }, 1000);
-            tickTimer = window.setInterval(() => {
-                if (elapsedMs < durSec * 1000) {
-                    tick();
+            const applyPrice = (price, base) => {
+                if (p0Val == null) {
+                    p0Val = base;
+                    setP0(base);
                 }
-            }, tickMs);
+                const currentBase = p0Val ?? base;
+                const offsetPct = (price - currentBase) / currentBase;
+                setPc(price);
+                setChgPct(offsetPct);
+                setDirection(offsetPct > 0 ? '↑ Long (B)' : offsetPct < 0 ? '↓ Short (S)' : '—');
+                idxFloat = mid - (offsetPct / lanePct);
+                const lo = mid - clampLanes;
+                const hi = mid + clampLanes;
+                if (idxFloat < lo)
+                    idxFloat = lo;
+                if (idxFloat > hi)
+                    idxFloat = hi;
+                elapsedMs += tickMs;
+                if (elapsedMs > durSec * 1000)
+                    elapsedMs = durSec * 1000;
+                samples.push({ tMs: elapsedMs, idxFloat });
+                drawGrid();
+                drawTrail();
+                updateBoard(Math.max(0, Math.min(labels.length - 1, Math.round(idxFloat))));
+            };
+            const poll = async () => {
+                if (elapsedMs >= durSec * 1000)
+                    return;
+                try {
+                    const res = await mockLiveStatus();
+                    const price = res?.realtime_price?.price;
+                    const base = res?.realtime_price?.p0 ?? price;
+                    if (price != null && base != null) {
+                        applyPrice(price, base);
+                    }
+                }
+                catch { /* ignore */ }
+            };
+            poll();
+            tickTimer = window.setInterval(() => { void poll(); }, tickMs);
         }
         function stop() {
             if (secTimer) {
@@ -286,7 +294,7 @@ export default function PresenterLive() {
             stop();
             window.removeEventListener('resize', handleResize);
         };
-    }, [labels, mid, clampLanes, lanePct]);
+    }, [labels, mid, clampLanes, lanePct, navigate]);
     const ticks = Array.from({ length: 31 });
     if (tickRefs.current.length !== ticks.length) {
         tickRefs.current = Array(ticks.length).fill(null);
@@ -294,5 +302,5 @@ export default function PresenterLive() {
     if (laneRefs.current.length !== labels.length) {
         laneRefs.current = Array(labels.length).fill(null);
     }
-    return (_jsxs("div", { className: "container", style: { maxWidth: 900 }, children: [_jsxs("div", { className: "header", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 12 }, children: [_jsx("span", { className: "badge", children: "Oh\u00A0My\u00A0Balls" }), _jsx("div", { className: "title", children: "Presenter \u2014 Live (Synced Panels \u00B7 Fixed Top)" })] }), _jsxs("div", { className: "timeline card", style: { padding: '8px 12px' }, children: [_jsx("div", { className: "meta", children: "t0" }), _jsx("div", { className: "ticks", children: ticks.map((_, i) => (_jsx("div", { className: "tick", ref: el => { tickRefs.current[i] = el; } }, i))) }), _jsx("div", { className: "meta", children: "t30" }), _jsxs("div", { className: "meta", children: [countdown, "s"] })] })] }), _jsxs("div", { className: "stage", children: [_jsx("div", { className: "leftPanel", children: _jsxs("div", { className: "card", children: [_jsxs("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 8 }, children: [_jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Anchor p0" }), _jsx("div", { className: "v", children: fmtUSD(p0) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Current" }), _jsx("div", { className: "v", children: fmtUSD(pc) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "\u0394 %" }), _jsx("div", { className: "v", children: fmtPct(chgPct) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Direction" }), _jsx("div", { className: "v", children: direction })] })] }), _jsx("div", { className: "meta", style: { marginBottom: 8 }, children: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D: \u0448\u0430\u0440\u044B \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u044B\u0440\u0430\u0432\u043D\u0435\u043D\u044B \u0441 \u0441\u0435\u0442\u043A\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A\u0430. \u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0435 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F \u00B17%, \u0443\u0432\u0435\u043B\u0438\u0447\u0435\u043D\u043D\u044B\u0435 \u0438\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044B." }), _jsxs("div", { style: { position: 'relative' }, children: [_jsx("canvas", { ref: canvasRef, className: "chart", style: { display: 'block', width: '100%', height: 700, borderRadius: 12, border: '1px solid rgba(255,255,255,.08)', background: 'linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))' } }), _jsx("div", { ref: indicatorRef, className: "indicatorLine", style: { top: '50%' } })] }), _jsxs("div", { style: { display: 'flex', gap: 8, marginTop: 10 }, children: [_jsx("button", { className: "btn", onClick: () => resetRef.current(), children: "Reset" }), _jsx("button", { className: "btn", onClick: () => { window.location.hash = '#/presenter/results'; }, children: "Resolve \u2192" })] })] }) }), _jsx("div", { className: "rightPanel", children: _jsxs("div", { className: "card", ref: rightCardRef, children: [_jsx("div", { ref: lanesHeaderRef, style: { fontWeight: 800, marginBottom: 8 }, children: "Balls (S9\u2192B9)" }), _jsx("div", { className: "lanesWrap", ref: lanesWrapRef, children: labels.map((label, idx) => (_jsx("div", { className: "laneDot", ref: el => { laneRefs.current[idx] = el; }, children: _jsx("span", { className: `ball ${label.startsWith('B') ? 'long' : 'short'}`, children: label }) }, label))) })] }) })] })] }));
+    return (_jsxs("div", { className: "container", style: { maxWidth: 900 }, children: [_jsxs("div", { className: "header", children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', gap: 12 }, children: [_jsx("span", { className: "badge", children: "Oh\u00A0My\u00A0Balls" }), _jsx("div", { className: "title", children: "Presenter \u2014 Live (Synced Panels \u00B7 Fixed Top)" })] }), _jsxs("div", { className: "timeline card", style: { padding: '8px 12px' }, children: [_jsx("div", { className: "meta", children: "t0" }), _jsx("div", { className: "ticks", children: ticks.map((_, i) => (_jsx("div", { className: "tick", ref: el => { tickRefs.current[i] = el; } }, i))) }), _jsx("div", { className: "meta", children: "t30" }), _jsxs("div", { className: "meta", children: [countdown, "s"] })] })] }), _jsxs("div", { className: "stage", children: [_jsx("div", { className: "leftPanel", children: _jsxs("div", { className: "card", children: [_jsxs("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 8 }, children: [_jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Anchor p0" }), _jsx("div", { className: "v", children: fmtUSD(p0) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Current" }), _jsx("div", { className: "v", children: fmtUSD(pc) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "\u0394 %" }), _jsx("div", { className: "v", children: fmtPct(chgPct) })] }), _jsxs("div", { className: "stat", children: [_jsx("div", { className: "meta", children: "Direction" }), _jsx("div", { className: "v", children: direction })] })] }), _jsx("div", { className: "meta", style: { marginBottom: 8 }, children: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D: \u0448\u0430\u0440\u044B \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u044B\u0440\u0430\u0432\u043D\u0435\u043D\u044B \u0441 \u0441\u0435\u0442\u043A\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A\u0430. \u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0435 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F \u00B17%, \u0443\u0432\u0435\u043B\u0438\u0447\u0435\u043D\u043D\u044B\u0435 \u0438\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044B." }), _jsxs("div", { style: { position: 'relative' }, children: [_jsx("canvas", { ref: canvasRef, className: "chart", style: { display: 'block', width: '100%', height: 700, borderRadius: 12, border: '1px solid rgba(255,255,255,.08)', background: 'linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))' } }), _jsx("div", { ref: indicatorRef, className: "indicatorLine", style: { top: '50%' } })] }), _jsxs("div", { style: { display: 'flex', gap: 8, marginTop: 10 }, children: [_jsx("button", { className: "btn", onClick: () => resetRef.current(), children: "Reset" }), _jsx("button", { className: "btn", onClick: () => navigate('/presenter/results'), children: "Resolve \u2192" })] })] }) }), _jsx("div", { className: "rightPanel", children: _jsxs("div", { className: "card", ref: rightCardRef, children: [_jsx("div", { ref: lanesHeaderRef, style: { fontWeight: 800, marginBottom: 8 }, children: "Balls (S9\u2192B9)" }), _jsx("div", { className: "lanesWrap", ref: lanesWrapRef, children: labels.map((label, idx) => (_jsx("div", { className: "laneDot", ref: el => { laneRefs.current[idx] = el; }, children: _jsx("span", { className: `ball ${label.startsWith('B') ? 'long' : 'short'}`, children: label }) }, label))) })] }) })] })] }));
 }

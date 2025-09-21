@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { mockLiveStatus, resetMockLive } from '../lib/mockServer';
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
@@ -14,6 +16,7 @@ function fmtPct(p: number | null){
 }
 
 export default function PresenterLive(){
+  const navigate = useNavigate();
   const labels = useMemo(()=>[
     ...Array.from({length:9},(_,i)=>`B${9-i}`),
     'B0','S0',
@@ -50,9 +53,8 @@ export default function PresenterLive(){
     const ctx = context;
 
     const samples: { tMs:number, idxFloat:number }[] = [];
-    let p0Val = 62000 + (Math.random()*2000-1000);
+    let p0Val: number | null = null;
     let idxFloat = mid;
-    let dir = Math.random()>0.5 ? 1 : -1;
     let elapsedMs = 0;
     let secCount = 0;
     let tickTimer: number | null = null;
@@ -175,53 +177,28 @@ export default function PresenterLive(){
         if(!el) return;
         if(idx===idxRounded) el.classList.add('win'); else el.classList.remove('win');
       });
-      const delta = mid - idxRounded;
-      const offsetPct = delta * lanePct;
-      const current = p0Val * (1 + offsetPct);
-      setPc(current);
-      setChgPct(p0Val ? (current - p0Val)/p0Val : 0);
-      setDirection(offsetPct>0 ? '↑ Long (B)' : offsetPct<0 ? '↓ Short (S)' : '—');
       updateIndicatorLine(idxRounded);
     }
 
-    function tick(){
-      if(Math.random()<0.15) dir *= -1;
-      let step = Math.random()*1.5;
-      if(Math.random()<0.05) step += 2.5;
-      step *= dir;
-      idxFloat += step;
-      const lo = mid - clampLanes;
-      const hi = mid + clampLanes;
-      if(idxFloat < lo) idxFloat = lo;
-      if(idxFloat > hi) idxFloat = hi;
-      const idxRounded = Math.max(0, Math.min(labels.length-1, Math.round(idxFloat)));
-      elapsedMs += tickMs;
-      if(elapsedMs>durSec*1000) elapsedMs = durSec*1000;
-      samples.push({ tMs: elapsedMs, idxFloat });
-      drawGrid();
-      drawTrail();
-      updateBoard(idxRounded);
-    }
-
     function start(){
+      resetMockLive();
       laneEls.forEach(el=> el?.classList.remove('win'));
       tickEls.forEach(el=> el?.classList.remove('active'));
-      p0Val = 62000 + (Math.random()*2000-1000);
+      p0Val = null;
       idxFloat = mid;
-      dir = Math.random()>0.5 ? 1 : -1;
       elapsedMs = 0;
       secCount = 0;
       samples.length = 0;
-      setP0(p0Val);
-      setPc(p0Val);
-      setChgPct(0);
+      setP0(null);
+      setPc(null);
+      setChgPct(null);
       setDirection('—');
       setCountdown(durSec);
       resizeCanvasToDisplaySize();
       drawGrid();
       drawTrail();
       positionRightLanes();
-      updateBoard(Math.round(idxFloat));
+      updateIndicatorLine(Math.round(idxFloat));
 
       if(secTimer) window.clearInterval(secTimer);
       if(tickTimer) window.clearInterval(tickTimer);
@@ -235,13 +212,47 @@ export default function PresenterLive(){
         if(secCount>durSec){
           if(secTimer){ window.clearInterval(secTimer); secTimer=null; }
           if(tickTimer){ window.clearInterval(tickTimer); tickTimer=null; }
-          setTimeout(()=>{ window.location.hash = '#/presenter/results'; }, 700);
+          setTimeout(()=>{ navigate('/presenter/results'); }, 700);
         }
       }, 1000);
 
-      tickTimer = window.setInterval(()=>{
-        if(elapsedMs < durSec*1000){ tick(); }
-      }, tickMs);
+      const applyPrice = (price:number, base:number)=>{
+        if(p0Val == null){
+          p0Val = base;
+          setP0(base);
+        }
+        const currentBase = p0Val ?? base;
+        const offsetPct = (price - currentBase) / currentBase;
+        setPc(price);
+        setChgPct(offsetPct);
+        setDirection(offsetPct>0 ? '↑ Long (B)' : offsetPct<0 ? '↓ Short (S)' : '—');
+        idxFloat = mid - (offsetPct / lanePct);
+        const lo = mid - clampLanes;
+        const hi = mid + clampLanes;
+        if(idxFloat < lo) idxFloat = lo;
+        if(idxFloat > hi) idxFloat = hi;
+        elapsedMs += tickMs;
+        if(elapsedMs>durSec*1000) elapsedMs = durSec*1000;
+        samples.push({ tMs: elapsedMs, idxFloat });
+        drawGrid();
+        drawTrail();
+        updateBoard(Math.max(0, Math.min(labels.length-1, Math.round(idxFloat))));
+      };
+
+      const poll = async ()=>{
+        if(elapsedMs >= durSec*1000) return;
+        try{
+          const res = await mockLiveStatus();
+          const price = res?.realtime_price?.price;
+          const base = res?.realtime_price?.p0 ?? price;
+          if(price!=null && base!=null){
+            applyPrice(price, base);
+          }
+        }catch{/* ignore */}
+      };
+
+      poll();
+      tickTimer = window.setInterval(()=>{ void poll(); }, tickMs);
     }
 
     function stop(){
@@ -265,7 +276,7 @@ export default function PresenterLive(){
       stop();
       window.removeEventListener('resize', handleResize);
     };
-  }, [labels, mid, clampLanes, lanePct]);
+  }, [labels, mid, clampLanes, lanePct, navigate]);
 
   const ticks = Array.from({length:31});
   if(tickRefs.current.length !== ticks.length){
@@ -314,7 +325,7 @@ export default function PresenterLive(){
             </div>
             <div style={{display:'flex',gap:8,marginTop:10}}>
               <button className="btn" onClick={()=>resetRef.current()}>Reset</button>
-              <button className="btn" onClick={()=>{ window.location.hash = '#/presenter/results'; }}>Resolve →</button>
+              <button className="btn" onClick={()=>navigate('/presenter/results')}>Resolve →</button>
             </div>
           </div>
         </div>
