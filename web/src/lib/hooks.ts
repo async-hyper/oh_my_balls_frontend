@@ -9,7 +9,7 @@ export function useInterval(cb:()=>void, delay:number|null){
 
 export function useStatusPolling(role: 'presenter'|'user'){
   const [status, setStatus] = useState<any>(null);
-  const interval = role==='presenter'? 100 : 1000;
+  const interval = role==='presenter'? 500 : 1000;
   useInterval(async ()=>{ try{ setStatus(await api.status()); }catch{} }, interval);
   useEffect(()=>{ (async()=>{ try{ setStatus(await api.status()); }catch{} })(); }, []);
   return status;
