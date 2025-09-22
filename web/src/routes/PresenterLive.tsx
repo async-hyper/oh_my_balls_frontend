@@ -5,7 +5,7 @@ import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '.
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
-const tickMs = 250;
+const tickMs = 100;
 
 export default function PresenterLive(){
   const labels = useMemo(()=>LANES, []);
@@ -33,10 +33,18 @@ export default function PresenterLive(){
     let cancelled = false;
     let timer: number | null = null;
 
+    let inFlight: AbortController | null = null;
     const poll = async ()=>{
-      const res = await api.status();
-      if(cancelled) return;
-      handleStatus(res);
+      try{
+        inFlight?.abort();
+        inFlight = new AbortController();
+        const res = await api.status({ signal: inFlight.signal });
+        if(cancelled) return;
+        handleStatus(res);
+      }catch(err){
+        if((err as any)?.name === 'AbortError'){ return; }
+        // swallow other errors here; higher-level UI shows polling state/errors elsewhere
+      }
     };
 
     const handleStatus = (res: StatusResponse)=>{
@@ -196,6 +204,7 @@ export default function PresenterLive(){
 
     return ()=>{
       cancelled = true;
+      inFlight?.abort();
       if(timer) window.clearInterval(timer);
       window.removeEventListener('resize', handleResize);
     };
