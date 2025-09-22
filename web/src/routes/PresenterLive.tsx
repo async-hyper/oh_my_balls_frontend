@@ -5,7 +5,7 @@ import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '.
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
-const tickMs = 150;
+const tickMs = 175;
 
 export default function PresenterLive(){
   const labels = useMemo(()=>LANES, []);
