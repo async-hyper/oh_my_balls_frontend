@@ -12,7 +12,7 @@ API_DIR="$ROOT_DIR/local-api"
 
 echo "[1/3] Stopping local API (if running)..."
 # Find any "node ... server.js" whose CWD is exactly $API_DIR
-CANDIDATES=$(pgrep -f "node .*server.js" 2>/dev/null)
+CANDIDATES=$(pgrep -f "node server.js" 2>/dev/null)
 PIDS=""
 for pid in $CANDIDATES; do
   CWD=""
