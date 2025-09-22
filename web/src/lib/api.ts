@@ -170,7 +170,7 @@ async function status(): Promise<StatusResponse> {
 
 async function start(): Promise<void> {
   if(apiBase){
-    const res = await fetch(apiBase+'/start', { method:'POST' });
+    const res = await fetch(apiBase+'/start', { method:'GET' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     return;
   }
@@ -179,7 +179,7 @@ async function start(): Promise<void> {
 
 async function reset(): Promise<void> {
   if(apiBase){
-    await fetch(apiBase+'/reset', { method:'POST' });
+    await fetch(apiBase+'/reset', { method:'GET' });
     return;
   }
   mock.reset();
