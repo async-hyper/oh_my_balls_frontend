@@ -5,7 +5,7 @@ export type BallId = typeof LANES[number];
 
 export const LANES_BY_ID = new Map<string, number>(LANES.map((id, idx) => [id, idx]));
 export const MID_INDEX = (LANES.length - 1) / 2;
-export const LANE_PCT = 0.05 / MID_INDEX; // ±5% spread to extremities
+export const LANE_PCT = 0.001; // 0.1% per lane step (B0=+0.1%, S0=-0.1%)
 
 export function clampIdx(idx: number) {
   return Math.max(0, Math.min(LANES.length - 1, idx));

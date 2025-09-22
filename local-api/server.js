@@ -16,12 +16,12 @@ const BOT_FILL_ORDER = [
 ];
 const LANE_INDEX = new Map(LANES.map((ball, idx) => [ball, idx]));
 const MID_INDEX = (LANES.length - 1) / 2;
-const LANE_PCT = 0.05 / MID_INDEX; // ±5% to extremes
+const LANE_PCT = 0.001; // 0.1% per lane step
 const TOTAL_BALLS = LANES.length;
 
 const TICK_MS = 100;
 const DURATION_MS = 30_000;
-const CLAMP_PCT = 0.07;
+const CLAMP_PCT = 0.015; // ±1.5%
 
 function loadState(){
   try{
@@ -121,7 +121,7 @@ function computeStandings(lanePosition){
 
 function startLivePhase(){
   if(state.phase !== 0) return;
-  const base = 62000 + (Math.random()*2000 - 1000);
+  const base = 114568.00 + (Math.random()*2000 - 1000);
   state.phase = 1;
   state.live.startedAt = Date.now();
   state.live.p0 = base;

@@ -124,7 +124,7 @@ export default function PresenterLobby(){
         </div>
       </div>
 
-      <div className="footer">Demo UI · Replace placeholders with your backend events</div>
+      <div className="footer">Don't Worry - Be Happy. Test your luck!</div>
     </div>
   );
 }

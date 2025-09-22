@@ -198,8 +198,8 @@ async function mockStatus(): Promise<StatusResponse>{
 
 export const mock = {
   reset(){ write({ ...defaultState, participants:{} }); },
-  start(){ const s=read(); s.phase='live'; s.p0 = 62000 + (Math.random()*2000-1000); s.startedAt = Date.now(); s.chgPct = 0; s.p30 = null; s.winner = null; write(s); },
-  resolve(){ const s=read(); s.phase='results'; s.chgPct=(Math.random()*10-5)/100; if(!s.p0){ s.p0 = 62000 + (Math.random()*2000-1000); } s.p30=s.p0?(s.p0*(1+s.chgPct)):null; const idx=clampIdx(s.nowIdx); s.nowIdx = idx; s.winner={ball:LANES[Math.round(idx)]}; s.startedAt = null; write(s); },
+  start(){ const s=read(); s.phase='live'; s.p0 = 114568.00 + (Math.random()*2000-1000); s.startedAt = Date.now(); s.chgPct = 0; s.p30 = null; s.winner = null; write(s); },
+  resolve(){ const s=read(); s.phase='results'; s.chgPct=(Math.random()*3-1.5)/100; if(!s.p0){ s.p0 = 114568 + (Math.random()*2000-1000); } s.p30=s.p0?(s.p0*(1+s.chgPct)):null; const idx=clampIdx(s.nowIdx); s.nowIdx = idx; s.winner={ball:LANES[Math.round(idx)]}; s.startedAt = null; write(s); },
   addRandom(){ const uuid = (crypto as any).randomUUID?.() || Math.random().toString(36).slice(2); return mockJoin(uuid); },
   seed(n:number){ for(let i=0;i<n;i++) this.addRandom(); }
 };

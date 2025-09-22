@@ -25,10 +25,6 @@ function Landing(){
             <button className="btn" onClick={()=>location.hash='#/user/results'}>User Results</button>
           </div>
         </div>
-        <div className="card">
-          <div style={{fontWeight:800,marginBottom:8}}>Notes</div>
-          <div className="meta">All screens are static mocks. No API required.</div>
-        </div>
       </div>
     </div>
   );

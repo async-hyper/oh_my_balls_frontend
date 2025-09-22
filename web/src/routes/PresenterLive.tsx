@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, StatusResponse } from '../lib/api';
-import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '../lib/game';
+import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent, LANE_PCT } from '../lib/game';
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
@@ -10,8 +10,8 @@ const tickMs = 200;
 export default function PresenterLive(){
   const labels = useMemo(()=>LANES, []);
   const mid = MID_INDEX;
-  const lanePct = 0.05 / mid;
-  const clampPctTotal = 0.07;
+  const lanePct = LANE_PCT;
+  const clampPctTotal = 0.015;
   const clampLanes = clampPctTotal / lanePct;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -225,7 +225,7 @@ export default function PresenterLive(){
               <div className="stat"><div className="meta">Δ %</div><div className="v">{formatPercent(chgPct)}</div></div>
               <div className="stat"><div className="meta">Direction</div><div className="v">{direction}</div></div>
             </div>
-            <div className="meta" style={{marginBottom:12}}>Synced panels via shared mock status. Clamp ±7% with 30s countdown.</div>
+            <div className="meta" style={{marginBottom:12}}>Synced panels via shared mock status. Clamp ±1.5% with 30s countdown.</div>
             <div style={{position:'relative'}}>
               <canvas ref={canvasRef} className="chart" style={{display:'block',width:'100%',height:700,borderRadius:12,border:'1px solid rgba(255,255,255,.08)',background:'linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))'}} />
               <div ref={indicatorRef} className="indicatorLine" style={{top:'50%'}} />
