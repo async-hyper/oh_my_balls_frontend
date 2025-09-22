@@ -90,14 +90,24 @@ function priceToLane(p0, price){
 
 function nextPrice(prevPrice, base, velocity){
   let vel = velocity;
-  const variance = (Math.random() - 0.5) * 0.0035;
-  vel = (vel * 0.85) + variance;
-  let price = prevPrice * (1 + vel);
+  // Reduce variance and clamp per-tick step into 0.01%..0.05%
+  const variance = (Math.random() - 0.5) * 0.0002; // ~±0.02% influence
+  vel = (vel * 0.9) + variance;
+
+  const MAX_STEP = 0.0005; // 0.05%
+  const MIN_STEP = 0.0001; // 0.01%
+  let absStep = Math.abs(vel);
+  if(absStep > MAX_STEP) absStep = MAX_STEP;
+  if(absStep < MIN_STEP) absStep = MIN_STEP;
+  const dir = vel === 0 ? (Math.random() < 0.5 ? -1 : 1) : (vel > 0 ? 1 : -1);
+  const appliedPct = dir * absStep;
+
+  let price = prevPrice * (1 + appliedPct);
   const min = base * (1 - CLAMP_PCT);
   const max = base * (1 + CLAMP_PCT);
   if(price < min){ price = min; vel = Math.abs(vel); }
   if(price > max){ price = max; vel = -Math.abs(vel); }
-  return { price, velocity: vel };
+  return { price, velocity: appliedPct };
 }
 
 function computeStandings(lanePosition){
