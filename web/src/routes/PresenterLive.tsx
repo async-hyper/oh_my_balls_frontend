@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, StatusResponse } from '../lib/api';
+import { api, PriceSample, StandingEntry, StatusResponse } from '../lib/api';
 import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '../lib/game';
 
 const verticalSpacingMultiplier = 2.3;
@@ -19,13 +19,15 @@ export default function PresenterLive(){
   const lanesWrapRef = useRef<HTMLDivElement>(null);
   const lanesHeaderRef = useRef<HTMLDivElement>(null);
   const rightCardRef = useRef<HTMLDivElement>(null);
-  const samplesRef = useRef<{ tMs:number; price:number; lane:number }[]>([]);
+  const samplesRef = useRef<PriceSample[]>([]);
+  const standingsRef = useRef<StandingEntry[]>([]);
 
   const [p0, setP0] = useState<number | null>(null);
   const [pc, setPc] = useState<number | null>(null);
   const [chgPct, setChgPct] = useState<number | null>(null);
   const [direction, setDirection] = useState<string>('—');
   const [countdown, setCountdown] = useState<number>(durSec);
+  const [standingList, setStandingList] = useState<StandingEntry[]>([]);
 
   const navigate = useNavigate();
 
@@ -62,6 +64,8 @@ export default function PresenterLive(){
       setDirection(pct>0 ? '↑ Long (B)' : pct<0 ? '↓ Short (S)' : '—');
       setCountdown(Math.max(0, Math.round((durSec * 1000 - realtime_price.elapsedMs)/1000)));
       samplesRef.current = realtime_price.samples;
+      standingsRef.current = realtime_price.standings;
+      setStandingList(realtime_price.standings);
     };
 
     const renderScene = ()=>{
@@ -180,10 +184,18 @@ export default function PresenterLive(){
       const idxRounded = Math.max(0, Math.min(labels.length-1, Math.round(latest.lane)));
       indicator.style.top = laneToCss(latest.lane) + 'px';
       for(let i=0;i<lanesWrap.children.length;i++){
-        lanesWrap.children[i].classList.remove('win');
+        lanesWrap.children[i].classList.remove('win','leader');
       }
       const active = lanesWrap.children[idxRounded] as HTMLDivElement | undefined;
       if(active){ active.classList.add('win'); }
+      const leader = standingsRef.current[0];
+      if(leader){
+        const leaderIdx = labels.indexOf(leader.ball as typeof LANES[number]);
+        if(leaderIdx >= 0){
+          const leaderEl = lanesWrap.children[leaderIdx] as HTMLDivElement | undefined;
+          if(leaderEl){ leaderEl.classList.add('leader'); }
+        }
+      }
     };
 
     const handleResize = ()=>{
@@ -246,6 +258,25 @@ export default function PresenterLive(){
                 </div>
               ))}
             </div>
+            <div className="meta" style={{marginTop:16,fontWeight:700}}>Live Leaderboard</div>
+            <ol style={{margin:0,padding:'8px 0 0 0',listStyle:'none',display:'flex',flexDirection:'column',gap:6}}>
+              {standingList.slice(0,5).map(entry => {
+                const target = entry.targetPrice ?? null;
+                const diff = target != null && pc != null ? target - pc : null;
+                const diffLabel = diff == null ? '—' : `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
+                return (
+                  <li key={entry.uuid} style={{display:'flex',alignItems:'center',gap:8,justifyContent:'space-between',fontSize:13}}>
+                    <span style={{minWidth:20,fontWeight:700}}>{entry.position}.</span>
+                    <span className={`ball ${classifyBall(entry.ball)}`} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minWidth:38,fontSize:12}}>{entry.ball}</span>
+                    <span className="meta" style={{flex:1,textAlign:'right'}}>{formatCurrency(target)}</span>
+                    <span className="meta" style={{width:60,textAlign:'right'}}>Δ {diffLabel}</span>
+                  </li>
+                );
+              })}
+              {standingList.length === 0 && (
+                <li className="meta" style={{fontSize:12}}>Waiting for standings…</li>
+              )}
+            </ol>
           </div>
         </div>
       </div>

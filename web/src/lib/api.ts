@@ -1,4 +1,4 @@
-import { LANES, MID_INDEX, clampIdx } from './game';
+import { LANES, MID_INDEX, clampIdx, priceToLane } from './game';
 
 const REMOTE_BASE = 'https://omb-api.antosha.app/api/v1';
 const LOCAL_BASE = 'https://omb-api.antosha.app/api/v1';
@@ -9,12 +9,15 @@ export interface ParticipantSummary {
   ball: string;
   name: string;
   isBot: boolean;
+  targetPrice?: number | null;
+  lane?: number | null;
 }
 
 export interface PriceSample {
   tMs: number;
   price: number;
   lane: number;
+  timestamp?: number;
 }
 
 export interface StandingEntry {
@@ -24,16 +27,32 @@ export interface StandingEntry {
   isBot: boolean;
   position: number;
   distance: number;
+  targetPrice?: number | null;
+  lane?: number | null;
+}
+
+interface ParticipantWithDistance extends ParticipantSummary {
+  distance: number;
 }
 
 export type StatusResponse =
   | { status: 0; roundId: number; capacity: number; participants: ParticipantSummary[] }
-  | { status: 1; roundId: number; realtime_price: { price: number; p0: number; startedAt: number; elapsedMs: number; samples: PriceSample[]; standings: StandingEntry[] } }
+  | { status: 1; roundId: number; realtime_price: { price: number; p0: number; startedAt: number; elapsedMs: number; samples: PriceSample[]; standings: StandingEntry[]; participants: ParticipantSummary[] } }
   | { status: 2; roundId: number; results: { winnerBall: string | null; winnerName: string | null; p0: number | null; p30: number | null; chgPct: number | null; standings: StandingEntry[] } };
 
 type RemoteBall = { ball_name?: string; target_price?: number; uuid?: string };
+type RemotePoint = { timestamp?: number; price?: number };
 type RemoteStatus0 = { status: 0; realtime_price?: number; final_price?: number; balls?: RemoteBall[]; winner?: string };
-type RemoteStatus1 = { status: 1; realtime_price: { price?: number; p0?: number; started_at?: number; samples?: PriceSample[] } };
+type RemoteStatus1 = {
+  status: 1;
+  realtime_price: number;
+  p0?: number;
+  t0?: number;
+  final_price?: number;
+  balls?: RemoteBall[];
+  points?: RemotePoint[];
+  winner?: string;
+};
 type RemoteStatus2 = { status: 2; final_price?: number; winner?: string };
 type RemoteStatusResponse = RemoteStatus0 | RemoteStatus1 | RemoteStatus2;
 
@@ -42,11 +61,14 @@ function mapRemoteStatus(res: RemoteStatusResponse): StatusResponse {
     const rawBalls = Array.isArray(res.balls) ? res.balls : [];
     const participants: ParticipantSummary[] = rawBalls.map(ball => {
       const ballName = ball.ball_name ?? '???';
+      const targetPrice = typeof ball.target_price === 'number' ? ball.target_price : null;
       return {
         uuid: ball.uuid ?? `unknown-${ballName}`,
         ball: ballName,
         name: ballName,
-        isBot: false
+        isBot: false,
+        targetPrice,
+        lane: null
       };
     });
     return {
@@ -58,21 +80,83 @@ function mapRemoteStatus(res: RemoteStatusResponse): StatusResponse {
   }
 
   if(res.status === 1){
-    const price = typeof res.realtime_price === 'object'
-      ? (res.realtime_price.price ?? 0)
-      : typeof res.realtime_price === 'number'
-        ? res.realtime_price
-        : 0;
+    const rawBalls = Array.isArray(res.balls) ? res.balls : [];
+    const p0 = typeof res.p0 === 'number' ? res.p0 : res.realtime_price;
+    const t0Raw = typeof res.t0 === 'number' ? res.t0 : null;
+    const startedAtMs = t0Raw != null
+      ? (t0Raw > 1e12 ? t0Raw : t0Raw * 1000)
+      : Date.now();
+    const rawPoints = Array.isArray(res.points) ? res.points : [];
+    const samples: PriceSample[] = [];
+    for(const point of rawPoints){
+      if(typeof point?.price !== 'number') continue;
+      const tsRaw = typeof point.timestamp === 'number' ? point.timestamp : null;
+      const timestampMs = tsRaw != null ? (tsRaw > 1e12 ? tsRaw : tsRaw * 1000) : startedAtMs;
+      const tMs = Math.max(0, timestampMs - startedAtMs);
+      const lane = typeof p0 === 'number' && p0 > 0 ? priceToLane(p0, point.price) : MID_INDEX;
+      samples.push({ tMs, price: point.price, lane, timestamp: timestampMs });
+    }
+    samples.sort((a,b)=> a.tMs - b.tMs);
+
+    const lastSample = samples[samples.length - 1];
+    const price = lastSample?.price ?? res.realtime_price ?? p0 ?? 0;
+    const laneNow = lastSample?.lane ?? (typeof p0 === 'number' && p0 > 0 ? priceToLane(p0, price) : MID_INDEX);
+
+    if(samples.length === 0){
+      samples.push({
+        tMs: 0,
+        price,
+        lane: laneNow,
+        timestamp: startedAtMs
+      });
+    }
+
+    const elapsedMs = samples[samples.length - 1]?.tMs ?? Math.max(0, Date.now() - startedAtMs);
+
+    const participantsWithDistance: ParticipantWithDistance[] = rawBalls.map(ball => {
+      const ballName = ball.ball_name ?? '???';
+      const targetPrice = typeof ball.target_price === 'number' ? ball.target_price : null;
+      const lane = targetPrice != null && typeof p0 === 'number' && p0 > 0
+        ? priceToLane(p0, targetPrice)
+        : null;
+      const distance = lane != null ? Math.abs(lane - laneNow) : Number.POSITIVE_INFINITY;
+      return {
+        uuid: ball.uuid ?? `unknown-${ballName}`,
+        ball: ballName,
+        name: ballName,
+        isBot: false,
+        targetPrice,
+        lane,
+        distance
+      };
+    });
+
+    const standings: StandingEntry[] = participantsWithDistance
+      .map(part => ({
+        uuid: part.uuid,
+        ball: part.ball,
+        name: part.name,
+        isBot: part.isBot,
+        distance: part.distance ?? Number.POSITIVE_INFINITY,
+        targetPrice: part.targetPrice ?? null,
+        lane: part.lane ?? null
+      }))
+      .sort((a,b)=> a.distance - b.distance)
+      .map((entry, idx)=> ({ ...entry, position: idx + 1 }));
+
+    const participants: ParticipantSummary[] = participantsWithDistance.map(({ distance, ...rest }) => ({ ...rest }));
+
     return {
       status: 1,
       roundId: 0,
       realtime_price: {
         price,
-        p0: typeof res.realtime_price === 'object' && typeof res.realtime_price.p0 === 'number' ? res.realtime_price.p0 : price,
-        startedAt: typeof res.realtime_price === 'object' && typeof res.realtime_price.started_at === 'number' ? res.realtime_price.started_at : Date.now(),
-        elapsedMs: 0,
-        samples: Array.isArray(res.realtime_price) ? [] : (Array.isArray((res.realtime_price as any)?.samples) ? (res.realtime_price as any).samples : []),
-        standings: []
+        p0: typeof p0 === 'number' ? p0 : price,
+        startedAt: startedAtMs,
+        elapsedMs,
+        samples,
+        standings,
+        participants
       }
     };
   }
@@ -170,7 +254,7 @@ async function status(): Promise<StatusResponse> {
 
 async function start(): Promise<void> {
   if(apiBase){
-    const res = await fetch(apiBase+'/start', { method:'GET' });
+    const res = await fetch(apiBase+'/start', { method:'POST' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     return;
   }
@@ -179,7 +263,7 @@ async function start(): Promise<void> {
 
 async function reset(): Promise<void> {
   if(apiBase){
-    await fetch(apiBase+'/reset', { method:'GET' });
+    await fetch(apiBase+'/reset', { method:'POST' });
     return;
   }
   mock.reset();
@@ -239,6 +323,37 @@ async function mockStatus(): Promise<StatusResponse>{
   }
   if(state.phase === 'live' && state.p0 && state.startedAt){
     const elapsed = Date.now() - state.startedAt;
+    const currentPrice = state.p0 * (1 + (state.chgPct ?? 0));
+    const laneNow = priceToLane(state.p0, currentPrice);
+    const samples: PriceSample[] = [{
+      tMs: Math.max(0, elapsed),
+      price: currentPrice,
+      lane: laneNow,
+      timestamp: state.startedAt + Math.max(0, elapsed)
+    }];
+    const participants: ParticipantSummary[] = Object.entries(state.participants).map(([uuid, value])=>{
+      const laneIdx = LANES.indexOf(value.ball as typeof LANES[number]);
+      return {
+        uuid,
+        ball: value.ball,
+        name: value.ball,
+        isBot: uuid.startsWith('bot-'),
+        lane: laneIdx >= 0 ? laneIdx : null,
+        targetPrice: null
+      };
+    });
+    const standings: StandingEntry[] = participants
+      .map(part => ({
+        uuid: part.uuid,
+        ball: part.ball,
+        name: part.name,
+        isBot: part.isBot,
+        lane: part.lane ?? null,
+        targetPrice: null,
+        distance: part.lane != null ? Math.abs(part.lane - laneNow) : Number.POSITIVE_INFINITY
+      }))
+      .sort((a,b)=> a.distance - b.distance)
+      .map((entry, idx)=> ({ ...entry, position: idx + 1 }));
     return {
       status: 1,
       roundId: 1,
@@ -247,8 +362,9 @@ async function mockStatus(): Promise<StatusResponse>{
         p0: state.p0,
         startedAt: state.startedAt,
         elapsedMs: elapsed,
-        samples: [],
-        standings: []
+        samples,
+        standings,
+        participants
       }
     };
   }
