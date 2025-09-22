@@ -89,9 +89,9 @@ async function join(): Promise<{ball:string}> {
   return { ball: result.ball };
 }
 
-async function status(init?: { signal?: AbortSignal }): Promise<StatusResponse> {
+async function status(): Promise<StatusResponse> {
   if(apiBase){
-    const res = await fetch(apiBase+'/status', { signal: init?.signal });
+    const res = await fetch(apiBase+'/status');
     if(!res.ok) throw new Error('HTTP '+res.status);
     return res.json();
   }
