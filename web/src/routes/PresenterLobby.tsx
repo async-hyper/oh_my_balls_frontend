@@ -30,7 +30,7 @@ export default function PresenterLobby(){
 
     const handleStatus = (res: StatusResponse)=>{
       if(res.status === 0){
-        setParticipants(res.participants);
+        setParticipants(Array.isArray(res.participants) ? res.participants : []);
       }
       if(res.status === 1){
         navigate('/presenter/live');

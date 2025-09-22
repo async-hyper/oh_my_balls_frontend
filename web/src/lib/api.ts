@@ -1,7 +1,8 @@
 import { LANES, MID_INDEX, clampIdx } from './game';
 
-const REMOTE_BASE = 'https://omb-api.antosha.app';
-const LOCAL_BASE = 'http://localhost:4000';
+const REMOTE_BASE = 'https://omb-api.antosha.app/api/v1';
+const LOCAL_BASE = 'https://omb-api.antosha.app/api/v1';
+//const LOCAL_BASE = 'http://localhost:4000';
 
 export interface ParticipantSummary {
   uuid: string;
@@ -29,6 +30,66 @@ export type StatusResponse =
   | { status: 0; roundId: number; capacity: number; participants: ParticipantSummary[] }
   | { status: 1; roundId: number; realtime_price: { price: number; p0: number; startedAt: number; elapsedMs: number; samples: PriceSample[]; standings: StandingEntry[] } }
   | { status: 2; roundId: number; results: { winnerBall: string | null; winnerName: string | null; p0: number | null; p30: number | null; chgPct: number | null; standings: StandingEntry[] } };
+
+type RemoteBall = { ball_name?: string; target_price?: number; uuid?: string };
+type RemoteStatus0 = { status: 0; realtime_price?: number; final_price?: number; balls?: RemoteBall[]; winner?: string };
+type RemoteStatus1 = { status: 1; realtime_price: { price?: number; p0?: number; started_at?: number; samples?: PriceSample[] } };
+type RemoteStatus2 = { status: 2; final_price?: number; winner?: string };
+type RemoteStatusResponse = RemoteStatus0 | RemoteStatus1 | RemoteStatus2;
+
+function mapRemoteStatus(res: RemoteStatusResponse): StatusResponse {
+  if(res.status === 0){
+    const rawBalls = Array.isArray(res.balls) ? res.balls : [];
+    const participants: ParticipantSummary[] = rawBalls.map(ball => {
+      const ballName = ball.ball_name ?? '???';
+      return {
+        uuid: ball.uuid ?? `unknown-${ballName}`,
+        ball: ballName,
+        name: ballName,
+        isBot: false
+      };
+    });
+    return {
+      status: 0,
+      roundId: 0,
+      capacity: LANES.length,
+      participants
+    };
+  }
+
+  if(res.status === 1){
+    const price = typeof res.realtime_price === 'object'
+      ? (res.realtime_price.price ?? 0)
+      : typeof res.realtime_price === 'number'
+        ? res.realtime_price
+        : 0;
+    return {
+      status: 1,
+      roundId: 0,
+      realtime_price: {
+        price,
+        p0: typeof res.realtime_price === 'object' && typeof res.realtime_price.p0 === 'number' ? res.realtime_price.p0 : price,
+        startedAt: typeof res.realtime_price === 'object' && typeof res.realtime_price.started_at === 'number' ? res.realtime_price.started_at : Date.now(),
+        elapsedMs: 0,
+        samples: Array.isArray(res.realtime_price) ? [] : (Array.isArray((res.realtime_price as any)?.samples) ? (res.realtime_price as any).samples : []),
+        standings: []
+      }
+    };
+  }
+
+  return {
+    status: 2,
+    roundId: 0,
+    results: {
+      winnerBall: null,
+      winnerName: null,
+      p0: null,
+      p30: null,
+      chgPct: null,
+      standings: []
+    }
+  };
+}
 
 type Phase = 'lobby' | 'live' | 'results';
 type Participant = { ball: string }; // name == ball now
@@ -93,7 +154,16 @@ async function status(): Promise<StatusResponse> {
   if(apiBase){
     const res = await fetch(apiBase+'/status');
     if(!res.ok) throw new Error('HTTP '+res.status);
-    return res.json();
+    const data = await res.json();
+    const shouldMapRemote = apiMode === 'remote'
+      || (typeof data === 'object' && data !== null && (
+        'balls' in data
+        || typeof (data as any).realtime_price === 'number'
+      ));
+    if(shouldMapRemote){
+      return mapRemoteStatus(data as RemoteStatusResponse);
+    }
+    return data as StatusResponse;
   }
   return mockStatus();
 }

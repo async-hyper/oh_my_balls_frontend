@@ -4,23 +4,13 @@ import { api, StatusResponse } from '../lib/api';
 import { classifyBall } from '../lib/game';
 import { useInterval } from '../lib/hooks';
 
-function getOrCreateUUID(){
-  const key = 'omb_user_uuid';
-  if(typeof window === 'undefined') return 'local-uuid';
-  const existing = window.localStorage.getItem(key);
-  if(existing) return existing;
-  const generated = (crypto as any).randomUUID?.() || Math.random().toString(36).slice(2);
-  window.localStorage.setItem(key, generated);
-  return generated;
-}
-
 export default function UserLobby(){
   const navigate = useNavigate();
   const [ball, setBall] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [statusLabel, setStatusLabel] = useState('Assigning ball…');
   const [error, setError] = useState<string | null>(null);
-  const uuid = useMemo(()=>getOrCreateUUID(), []);
+  const uuid = useMemo(()=>api.getOrCreateUUID(), []);
 
   useEffect(()=>{
     let cancelled = false;
