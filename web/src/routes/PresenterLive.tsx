@@ -5,7 +5,7 @@ import { LANES, MID_INDEX, classifyBall, formatCurrency, formatPercent } from '.
 
 const verticalSpacingMultiplier = 2.3;
 const durSec = 30;
-const tickMs = 100;
+const tickMs = 250;
 
 export default function PresenterLive(){
   const labels = useMemo(()=>LANES, []);
@@ -33,17 +33,20 @@ export default function PresenterLive(){
     let cancelled = false;
     let timer: number | null = null;
 
-    let inFlight: AbortController | null = null;
+    let isFetching = false;
+    let lastPollAt = 0;
+    const pollGapMs = 1000; // limit network rate while keeping render ticks smooth
+
     const poll = async ()=>{
+      if(cancelled || isFetching) return;
+      isFetching = true;
       try{
-        inFlight?.abort();
-        inFlight = new AbortController();
-        const res = await api.status({ signal: inFlight.signal });
+        const res = await api.status();
         if(cancelled) return;
         handleStatus(res);
-      }catch(err){
-        if((err as any)?.name === 'AbortError'){ return; }
-        // swallow other errors here; higher-level UI shows polling state/errors elsewhere
+      }finally{
+        lastPollAt = Date.now();
+        isFetching = false;
       }
     };
 
@@ -199,12 +202,17 @@ export default function PresenterLive(){
     };
 
     poll();
-    timer = window.setInterval(poll, tickMs) as unknown as number;
+    timer = window.setInterval(()=>{
+      const now = Date.now();
+      if(now - lastPollAt >= pollGapMs) {
+        void poll();
+      }
+      renderScene();
+    }, tickMs) as unknown as number;
     window.addEventListener('resize', handleResize);
 
     return ()=>{
       cancelled = true;
-      inFlight?.abort();
       if(timer) window.clearInterval(timer);
       window.removeEventListener('resize', handleResize);
     };
